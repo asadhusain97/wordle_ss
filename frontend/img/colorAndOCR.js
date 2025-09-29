@@ -27,8 +27,10 @@ const REF = {
     ],
     gray: [
         { h: 114, s: 11, v: 65 },  // Dark mode lettered
-        { h: 120, s: 24, v: 25 },  // Dark mode blank
         { h: 85, s: 10, v: 146 },  // Light mode lettered
+    ],
+    gray_blanked: [
+        { h: 120, s: 24, v: 25 },  // Dark mode blank
         { h: 15, s: 1, v: 251 }    // Light mode blank
     ]
 };
@@ -64,7 +66,23 @@ function meanHSV(tileMat) {
  * @param {cv.Mat} tileMat - Tile image matrix
  * @returns {'green'|'yellow'|'gray'} Classified color
  */
+/**
+ * --- HIGHLIGHT: State flag for optimization ---
+ * This flag persists across multiple calls to classifyTileColor.
+ * It must be reset to 'false' before processing a new grid.
+ */
+let grayBlankDetected = false;
 export function classifyTileColor(tileMat) {
+    /**
+     * --- HIGHLIGHT: Optimization shortcut ---
+     * If a blank gray tile has already been found, we know all
+     * subsequent tiles are also gray. This skips the expensive
+     * color comparison for the rest of the grid.
+     */
+    if (grayBlankDetected) {
+        return 'gray';
+    }
+
     try {
         const tileHSV = meanHSV(tileMat);
         console.log('[COLOR] 🔄 Classifying tile color...', {
@@ -96,6 +114,16 @@ export function classifyTileColor(tileMat) {
                 minDistance = minDistanceForColor;
                 closestColor = colorName;
             }
+        }
+
+        /**
+         * --- HIGHLIGHT: Setting the flag ---
+         * If the closest match is a blank gray tile, we set the flag
+         * to true for future calls and return 'gray' for consistency.
+         */
+        if (closestColor === 'gray_blanked') {
+            grayBlankDetected = true;
+            return 'gray';
         }
 
         console.log('[COLOR] ✅ Color classified', {

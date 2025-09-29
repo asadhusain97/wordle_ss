@@ -6,8 +6,8 @@
 import { sliceTiles } from './warpAndTiles.js';
 
 // Debug configuration - control visual debugging features
-const DEBUG = true; // Set to false to disable visual debug images and delays
-const DEBUG_DISPLAY_DURATION = 0.1; // Seconds to display debug images (only when DEBUG = true)
+const DEBUG = false; // Set to false to disable visual debug images and delays
+const DEBUG_DISPLAY_DURATION = 1; // Seconds to display debug images (only when DEBUG = true)
 
 /**
  * Helper function to display a canvas on the page temporarily for debugging
@@ -320,17 +320,19 @@ export async function ocrTileLetters(tiles) {
             tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
             tessedit_ocr_engine_mode: 1,
             preserve_interword_spaces: '0',
+            tessedit_char_blacklist: '0123456789',
         });
         console.log('[OCR] ✅ Parameters configured for single character recognition');
 
         const results = [];
         let successCount = 0;
         let failCount = 0;
-        let debugCount = 5;
+        let debugCountMax = 5;
+        let debugCountMin = 2;
 
         for (let i = 0; i < tiles.length; i++) {
             const tile = tiles[i];
-            let croppedTile, gray, blurred, thresh, floodfill, filled, inverted, originalCanvas, grayCanvas, threshCanvas, finalCanvas;
+            let croppedTile, gray, blurred, thresh, floodfill, dilated, continuous_fig, enlarged, originalCanvas, grayCanvas, threshCanvas, finalCanvas;
 
             try {
                 console.log(`[OCR] 🎯 Processing tile ${i + 1}/${tiles.length}...`);
@@ -351,7 +353,7 @@ export async function ocrTileLetters(tiles) {
                 }
 
                 // Debug: Log input tile info
-                if (i <= debugCount) { // Only log first few tiles to avoid clutter
+                if (i <= debugCountMax && i > debugCountMin) { // Only log first few tiles to avoid clutter
                     console.log(`[OCR] 📊 Input tile ${i + 1} info:`, {
                         size: `${tile.cols}x${tile.rows}`,
                         channels: tile.channels(),
@@ -367,11 +369,11 @@ export async function ocrTileLetters(tiles) {
                 originalCanvas.height = tile.rows;
                 cv.imshow(originalCanvas, tile);
 
-                if (i <= debugCount) { // Only log first few tiles to avoid clutter
+                if (i <= debugCountMax && i > debugCountMin) { // Only log first few tiles to avoid clutter
                     console.log(`[OCR] 🖼️  Original tile ${i + 1}:`, originalCanvas.toDataURL());
 
                     // Display original tile on screen
-                    await displayDebugCanvas(originalCanvas, `Tile ${i + 1}/30 - Original`, 1000);
+                    await displayDebugCanvas(originalCanvas, `Tile ${i + 1}/30 - Original`);
 
                 }
 
@@ -392,71 +394,73 @@ export async function ocrTileLetters(tiles) {
                 grayCanvas.height = gray.rows;
                 cv.imshow(grayCanvas, gray);
 
-                if (i <= debugCount) { // Only log first few tiles to avoid clutter
+                if (i <= debugCountMax && i > debugCountMin) { // Only log first few tiles to avoid clutter
                     console.log(`[OCR] 🔘 Grayscale tile ${i + 1}:`, {
                         size: `${gray.cols}x${gray.rows}`,
                         dataURL: grayCanvas.toDataURL()
                     });
 
                     // Display grayscale tile on screen
-                    await displayDebugCanvas(grayCanvas, `Tile ${i + 1}/30 - Grayscale`, 1000);
+                    await displayDebugCanvas(grayCanvas, `Tile ${i + 1}/30 - Grayscale`);
                 }
 
                 // Step 2: Apply adaptive thresholding
                 thresh = new cv.Mat();
-                cv.threshold(blurred, thresh, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU);
+                // cv.threshold(blurred, thresh, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU);
+                cv.threshold(blurred, thresh, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU);
 
                 // Debug: Show threshold result
                 threshCanvas = document.createElement('canvas');
                 threshCanvas.width = thresh.cols;
                 threshCanvas.height = thresh.rows;
                 cv.imshow(threshCanvas, thresh);
-                if (i <= debugCount) { // Only log first few tiles to avoid clutter
+                if (i <= debugCountMax && i > debugCountMin) { // Only log first few tiles to avoid clutter
                     console.log(`[OCR] ⚫ Thresholded tile ${i + 1}:`, {
                         size: `${thresh.cols}x${thresh.rows}`,
                         dataURL: threshCanvas.toDataURL()
                     });
                     // Display thresholded tile on screen
-                    await displayDebugCanvas(threshCanvas, `Tile ${i + 1}/30 - Thresholded`, 1000);
+                    await displayDebugCanvas(threshCanvas, `Tile ${i + 1}/30 - Thresholded`);
                 }
 
-                // Step 2.5: Flood fill to remove border artifacts (if any)
-                // Create a copy to flood fill, leaving the original threshold intact
-                floodfill = thresh.clone();
-                cv.bitwise_not(floodfill, floodfill); // Invert for flood fill
-                // Create a mask for flood fill
-                let mask = new cv.Mat();
-                mask.create(floodfill.rows + 2, floodfill.cols + 2, cv.CV_8UC1);
-                mask.setTo(new cv.Scalar(0));
+                // Step 3: Morphological and dilation operations to close gaps
+                dilated = new cv.Mat();
+                let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(2, 2));
+                cv.dilate(thresh, dilated, dilateKernel);
 
-                // Perform the flood fill from the top-left corner
-                cv.floodFill(floodfill, mask, new cv.Point(0, 0), new cv.Scalar(255));
+                continuous_fig = new cv.Mat();
+                let kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3));
+                cv.morphologyEx(dilated, continuous_fig, cv.MORPH_CLOSE, kernel);
 
-                // Invert the flood-filled image back
-                cv.bitwise_not(floodfill, floodfill);
-
-                // Debug: Show filled result
+                // Debug: Show continuous_fig result
                 finalCanvas = document.createElement('canvas');
-                finalCanvas.width = floodfill.cols;
-                finalCanvas.height = floodfill.rows;
-                cv.imshow(finalCanvas, floodfill);
-                if (i <= debugCount) { // Only log first few tiles to avoid clutter
-                    console.log(`[OCR] Flood Filled tile ${i + 1}:`, {
-                        size: `${floodfill.cols}x${floodfill.rows}`,
+                finalCanvas.width = continuous_fig.cols;
+                finalCanvas.height = continuous_fig.rows;
+                cv.imshow(finalCanvas, continuous_fig);
+                if (i <= debugCountMax && i > debugCountMin) { // Only log first few tiles to avoid clutter
+                    console.log(`[OCR] continuous_fig tile ${i + 1}:`, {
+                        size: `${continuous_fig.cols}x${continuous_fig.rows}`,
                         dataURL: finalCanvas.toDataURL()
                     });
 
                     // Display final processed tile on screen
-                    await displayDebugCanvas(finalCanvas, `Tile ${i + 1}/30 - Flood Filled`, 2000);
+                    await displayDebugCanvas(finalCanvas, `Tile ${i + 1}/30 - continuous_fig`);
                 }
 
                 console.log(`[OCR] 📸 Preprocessing completed for tile ${i + 1}`);
 
                 // Create a proper canvas with cv.imshow to avoid data corruption
                 const ocrCanvas = document.createElement('canvas');
-                ocrCanvas.width = floodfill.cols;
-                ocrCanvas.height = floodfill.rows;
-                cv.imshow(ocrCanvas, floodfill);
+                ocrCanvas.width = continuous_fig.cols;
+                ocrCanvas.height = continuous_fig.rows;
+
+                // enlarge the image for better OCR accuracy
+                enlarged = new cv.Mat();
+                cv.resize(continuous_fig, enlarged, new cv.Size(continuous_fig.cols * 2, continuous_fig.rows * 2), 0, 0, cv.INTER_CUBIC);
+
+                // Use enlarged for OCR
+                cv.imshow(ocrCanvas, enlarged);
+                enlarged.delete();
 
                 // Validate canvas before passing to Tesseract
                 if (!ocrCanvas || ocrCanvas.width === 0 || ocrCanvas.height === 0) {
@@ -490,11 +494,10 @@ export async function ocrTileLetters(tiles) {
                 // Clean up OpenCV matrices
                 if (gray) gray.delete();
                 if (thresh) thresh.delete();
-                if (inverted) inverted.delete();
+                if (dilated) dilated.delete();
                 if (croppedTile) croppedTile.delete();
                 if (blurred) blurred.delete();
-                if (floodfill) floodfill.delete();
-                if (filled) filled.delete();
+                if (continuous_fig) continuous_fig.delete();
                 // Clean up debug canvases (optional - browser will GC them)
                 if (originalCanvas) originalCanvas.remove();
                 if (grayCanvas) grayCanvas.remove();

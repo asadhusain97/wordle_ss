@@ -4,7 +4,7 @@
  */
 
 // Debug timing constant - how long to display each debug image (in seconds)
-const DEBUG_DISPLAY_DURATION = 5;
+const DEBUG_DISPLAY_DURATION = 2;
 
 /**
  * Ensures OpenCV.js is ready for use

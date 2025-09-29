@@ -17,9 +17,20 @@ export class GridUnreadableError extends Error {
 
 // Reference HSV centroids (tunable)
 const REF = {
-    green:  { h: 100, s: 45, v: 60 }, // tuned to Wordle-like green
-    yellow: { h: 55,  s: 45, v: 80 },
-    gray:   { h: 0,   s: 0,  v: 50 }  // neutral
+    green: [
+        { h: 66, s: 98, v: 129 },  // Dark Mode
+        { h: 49, s: 89, v: 183 }   // Light Mode
+    ],
+    yellow: [
+        { h: 22, s: 124, v: 157 }, // Dark Mode
+        { h: 22, s: 124, v: 207 }  // Light Mode
+    ],
+    gray: [
+        { h: 114, s: 11, v: 65 },  // Dark mode lettered
+        { h: 120, s: 24, v: 25 },  // Dark mode blank
+        { h: 85, s: 10, v: 146 },  // Light mode lettered
+        { h: 15, s: 1, v: 251 }    // Light mode blank
+    ]
 };
 
 /**
@@ -66,17 +77,23 @@ export function classifyTileColor(tileMat) {
         const distances = {};
 
         // Simple nearest-centroid classification
-        for (const [colorName, centroid] of Object.entries(REF)) {
-            // Weighted Euclidean distance
-            const hDiff = Math.abs(tileHSV.h - centroid.h);
-            const sDiff = Math.abs(tileHSV.s - centroid.s);
-            const vDiff = Math.abs(tileHSV.v - centroid.v);
+        // Iterate over each color category (green, yellow, gray)
+        for (const [colorName, centroids] of Object.entries(REF)) {
+            // For each color, find the distance to its closest reference point
+            const distancesToCentroids = centroids.map(centroid => {
+                const hDiff = Math.abs(tileHSV.h - centroid.h);
+                const sDiff = Math.abs(tileHSV.s - centroid.s);
+                const vDiff = Math.abs(tileHSV.v - centroid.v);
+                // Using weighted Euclidean distance (optional, but recommended)
+                // Hue is often the most important, so we give it more weight.
+                return Math.sqrt(Math.pow(hDiff, 2) + Math.pow(sDiff, 2) + Math.pow(vDiff, 2));
+            });
 
-            const distance = Math.sqrt(hDiff * hDiff + sDiff * sDiff + vDiff * vDiff);
-            distances[colorName] = Math.round(distance);
+            // The distance for this color is the minimum of the distances to its centroids
+            const minDistanceForColor = Math.min(...distancesToCentroids);
 
-            if (distance < minDistance) {
-                minDistance = distance;
+            if (minDistanceForColor < minDistance) {
+                minDistance = minDistanceForColor;
                 closestColor = colorName;
             }
         }

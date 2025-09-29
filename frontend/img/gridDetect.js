@@ -242,7 +242,7 @@ export async function detectWordleGrid(srcMat) {
                         });
 
                         // 🖼️ DEBUG: Show tile candidates (but only first few to avoid overwhelming)
-                        if (rectangularCandidates <= 10 && isValidTileSize && isValidTileAspect) {
+                        if (rectangularCandidates <= 1 && isValidTileSize && isValidTileAspect) {
                             let candidateVisualization = null;
                             try {
                                 candidateVisualization = visualizeTileCandidate(srcMat, points, rectangularCandidates, true);

@@ -6,7 +6,7 @@
 import { debugShowMat } from './opencvBootstrap.js';
 
 // Debug timing constant - how long to display each debug image (in seconds)
-const DEBUG_DISPLAY_DURATION = 5;
+const DEBUG_DISPLAY_DURATION = 2;
 
 /**
  * Debug utility: Wait for specified duration to allow visual inspection
@@ -158,8 +158,8 @@ export async function sliceTiles(gridMat, rows = 6, cols = 5) {
             // Show first 6 tiles (first row) with delays
             for (let i = 0; i < Math.min(6, tiles.length); i++) {
                 if (tiles[i] && !tiles[i].empty()) {
-                    debugShowMat(tiles[i], `5️⃣ Tile ${i} (Row ${Math.floor(i/5)}, Col ${i%5})`);
-                    await debugWait(DEBUG_DISPLAY_DURATION, `Tile ${i} (Row ${Math.floor(i/5)}, Col ${i%5})`);
+                    debugShowMat(tiles[i], `5️⃣ Tile ${i} (Row ${Math.floor(i / 5)}, Col ${i % 5})`);
+                    await debugWait(DEBUG_DISPLAY_DURATION, `Tile ${i} (Row ${Math.floor(i / 5)}, Col ${i % 5})`);
                 }
             }
 

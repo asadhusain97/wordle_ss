@@ -94,21 +94,13 @@ document.addEventListener('DOMContentLoaded', function () {
             // Hover effects are now handled by CSS
         }
 
-        // Add game completion message
-        if (results.gameComplete) {
-            console.log('🎉 Game completed!');
-            const completionDiv = document.createElement('div');
-            completionDiv.className = 'game-complete';
-            completionDiv.innerHTML = '<strong>🎉 Puzzle solved! Only one word remaining.</strong>';
-            resultsHeader.appendChild(completionDiv);
-        }
     }
 
     function displayHeader(results) {
         console.log('📋 Creating header with results info');
 
-        // Best next guess
-        if (results.nextBest) {
+        // Best next guess (only show if game is not complete)
+        if (results.nextBest && !results.gameComplete) {
             const bestGuessDiv = document.createElement('div');
             bestGuessDiv.className = 'best-guess';
             bestGuessDiv.innerHTML = `<strong>🎯 Best Next Guess: ${results.nextBest}</strong>`;
@@ -149,7 +141,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const showLessBtn = document.createElement('button');
             showLessBtn.className = 'view-more-btn';
             showLessBtn.textContent = 'Show Less';
-            showLessBtn.addEventListener('click', function() {
+            showLessBtn.addEventListener('click', function () {
                 toggleAdditionalResults(additionalSuggestions);
             });
 

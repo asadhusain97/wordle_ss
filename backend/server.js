@@ -201,7 +201,7 @@ app.post('/api/get-results', async (req, res) => {
         };
 
         if (gameComplete) {
-            response.message = '🎉 Puzzle solved! Only one word remaining.';
+            response.message = '🎉 Puzzle solved! Are you testing me?';
         }
 
         console.log('📤 Sending response:', JSON.stringify(response, null, 2));

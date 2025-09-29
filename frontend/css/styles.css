@@ -256,3 +256,15 @@ footer {
     list-style: none;
     margin: 8px 0;
 }
+
+/* Error message animation */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

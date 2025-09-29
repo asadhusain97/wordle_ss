@@ -186,13 +186,62 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
     });
 
+    // Function to show error message
+    function showError(message) {
+        // Remove any existing error message
+        const existingError = document.querySelector('.error-message');
+        if (existingError) {
+            existingError.remove();
+        }
+
+        // Create error message element
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.innerHTML = `⚠️ ${message}`;
+        errorDiv.style.cssText = `
+            color: #ff6b6b;
+            background-color: rgba(255, 107, 107, 0.1);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+            padding: 12px 16px;
+            margin: 15px 0;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            text-align: center;
+            animation: fadeIn 0.3s ease;
+        `;
+
+        // Insert error message before the solve button
+        solveButton.parentNode.insertBefore(errorDiv, solveButton);
+
+        // Auto-remove error after 5 seconds
+        setTimeout(() => {
+            if (errorDiv.parentNode) {
+                errorDiv.remove();
+            }
+        }, 5000);
+    }
+
+    // Function to clear any existing error messages
+    function clearError() {
+        const existingError = document.querySelector('.error-message');
+        if (existingError) {
+            existingError.remove();
+        }
+    }
+
     // Solve button functionality
     solveButton.addEventListener('click', function() {
+        // Clear any existing errors
+        clearError();
+
         const gridState = [];
+        const incompleteRows = [];
 
         // Process each row
         for (let row = 0; row < 6; row++) {
             const rowData = [];
+            let hasAnyLetter = false;
+            let letterCount = 0;
 
             for (let col = 0; col < 5; col++) {
                 const cellIndex = row * 5 + col;
@@ -201,6 +250,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 const colorIndex = parseInt(cell.getAttribute('data-color-index'));
                 const colorState = ['grey', 'yellow', 'green'][colorIndex];
 
+                if (letter !== '') {
+                    hasAnyLetter = true;
+                    letterCount++;
+                }
+
                 rowData.push({
                     letter: letter,
                     color: colorState,
@@ -208,19 +262,33 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
 
-            // Only add rows that have at least one letter
-            if (rowData.some(cellData => cellData.letter !== '')) {
-                gridState.push({
-                    row: row + 1,
-                    cells: rowData,
-                    word: rowData.map(cell => cell.letter).join(''),
-                    colors: rowData.map(cell => cell.color === 'grey' ? 'b' : cell.color.charAt(0)).join('') // b, y, g format
-                });
+            // Check if row has letters but is incomplete
+            if (hasAnyLetter) {
+                if (letterCount < 5) {
+                    incompleteRows.push(row + 1);
+                } else {
+                    // Only add complete rows to gridState
+                    gridState.push({
+                        row: row + 1,
+                        cells: rowData,
+                        word: rowData.map(cell => cell.letter).join(''),
+                        colors: rowData.map(cell => cell.color === 'grey' ? 'b' : cell.color.charAt(0)).join('') // b, y, g format
+                    });
+                }
             }
+        }
+
+        // Validation: Check for incomplete rows
+        if (incompleteRows.length > 0) {
+            const rowText = incompleteRows.length === 1 ? 'row' : 'rows';
+            const rowNumbers = incompleteRows.join(', ');
+            showError(`Please complete all words in the grid. ${rowText.charAt(0).toUpperCase() + rowText.slice(1)} ${rowNumbers} ${incompleteRows.length === 1 ? 'has' : 'have'} incomplete words. Each word must be exactly 5 letters.`);
+            return; // Stop execution
         }
 
         // Log the collected data
         console.log('Grid State:', gridState);
+        console.log('Validation passed: All words are complete 5-letter words');
 
         // Create a more compact format for the backend API
         const compactFormat = gridState.map(row => {

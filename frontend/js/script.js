@@ -214,7 +214,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     row: row + 1,
                     cells: rowData,
                     word: rowData.map(cell => cell.letter).join(''),
-                    colors: rowData.map(cell => cell.color.charAt(0)).join('') // g, y, b format
+                    colors: rowData.map(cell => cell.color === 'grey' ? 'b' : cell.color.charAt(0)).join('') // b, y, g format
                 });
             }
         }
@@ -223,10 +223,13 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Grid State:', gridState);
 
         // Create a more compact format for the backend API
-        const compactFormat = gridState.map(row => [
-            row.word.toLowerCase(),
-            row.colors.replace(/grey/g, 'b').replace(/yellow/g, 'y').replace(/green/g, 'g')
-        ]);
+        const compactFormat = gridState.map(row => {
+            const word = row.word.toLowerCase();
+            const colors = row.colors; // Already in 'b', 'y', 'g' format
+
+            console.log(`🎯 Processing row: "${word}" with colors "${colors}"`);
+            return [word, colors];
+        });
 
         console.log('Compact Format for API:', compactFormat);
 
@@ -268,12 +271,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Helper function to get current color state of a cell
-    function getCellColorState(cell) {
-        if (cell.classList.contains('yellow-cell')) return 'yellow';
-        if (cell.classList.contains('green-cell')) return 'green';
-        return 'grey';
-    }
 
     // Focus on the document to capture keyboard events
     document.body.focus();

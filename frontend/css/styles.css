@@ -241,3 +241,18 @@ footer {
         font-size: 1.8rem;
     }
 }
+
+/* Results Page Styles */
+.results-section {
+    margin: 20px 0;
+}
+
+#results-list, #additional-results {
+    padding: 0;
+    margin: 15px 0;
+}
+
+#results-list li, #additional-results li {
+    list-style: none;
+    margin: 8px 0;
+}

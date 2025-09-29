@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Possible Wordle Answers - Wordle Solver SS</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
     <div class="main-container">
@@ -13,12 +13,21 @@
         </header>
 
         <section class="results-section">
+            <div id="results-header">
+                <!-- Header info will be populated here -->
+            </div>
             <ol id="results-list">
-                <!-- Results will be populated here -->
+                <!-- Top 5 results will be populated here -->
             </ol>
+            <div id="view-more-section" style="display: none;">
+                <button id="view-more-btn">View More Guesses</button>
+                <ol id="additional-results" style="display: none;">
+                    <!-- Additional results will be populated here -->
+                </ol>
+            </div>
         </section>
     </div>
 
-    <script src="results-script.js"></script>
+    <script src="js/results-script.js"></script>
 </body>
 </html>

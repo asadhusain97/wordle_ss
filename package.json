@@ -2,15 +2,15 @@
   "name": "wordle-solver-vision-backend",
   "version": "1.0.0",
   "description": "Backend API for Wordle Solver Vision application",
-  "main": "server.js",
+  "main": "backend/server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
+    "start": "node backend/server.js",
+    "dev": "nodemon backend/server.js",
     "launch": "node launch.js",
     "dev-launch": "nodemon launch.js",
     "test": "jest",
     "test-solver": "node backend/examples/wordle-solver-usage.js",
-    "debug": "node --inspect launch.js"
+    "debug": "node --inspect backend/server.js"
   },
   "keywords": [
     "wordle",

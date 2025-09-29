@@ -72,34 +72,69 @@ document.addEventListener('DOMContentLoaded', function () {
         return { valid: true };
     }
 
-    function handleImageUpload(file) {
+    async function handleImageUpload(file) {
         logUploadEvent('UPLOAD_START', 'Beginning image processing', {
             name: file.name,
             size: file.size,
             type: file.type
         });
 
-        const reader = new FileReader();
+        // Show processing status
+        showUploadStatus('🔄 Processing image...', 'processing');
+        uploadButton.disabled = true;
+        uploadButton.textContent = '🔄 Processing...';
 
-        reader.onload = function(e) {
-            logUploadEvent('UPLOAD_SUCCESS', 'Image successfully read', {
+        try {
+            // Import the processing function dynamically
+            logUploadEvent('MODULE_IMPORT', 'Starting dynamic import of processWordleFromImage.js');
+            console.log(`🔍 [CLIENT] Attempting to import: /process/processWordleFromImage.js`);
+            console.log(`🔍 [CLIENT] Current location: ${window.location.origin}${window.location.pathname}`);
+            console.log(`🔍 [CLIENT] Full URL will be: ${window.location.origin}/process/processWordleFromImage.js`);
+
+            const { processAndPopulateGrid } = await import('/process/processWordleFromImage.js');
+
+            logUploadEvent('MODULE_IMPORT_SUCCESS', 'Successfully imported processWordleFromImage.js module');
+
+            // Process the image and populate the grid
+            logUploadEvent('PROCESSING_START', 'Starting processAndPopulateGrid function');
+            const result = await processAndPopulateGrid(file);
+
+            logUploadEvent('UPLOAD_SUCCESS', 'Image processed and grid populated', {
                 name: file.name,
-                dataSize: e.target.result.length
+                gridItemsDetected: result.grid.length
             });
 
-            showUploadStatus(`✅ Image "${file.name}" uploaded successfully! Image processing will be implemented in a future update.`, 'success');
-        };
+            showUploadStatus(`✅ Image "${file.name}" processed successfully! Detected ${result.grid.length} filled cells.`, 'success');
 
-        reader.onerror = function(e) {
-            logUploadEvent('UPLOAD_ERROR', 'Failed to read image file', {
+        } catch (error) {
+            console.error(`🚨 [CLIENT ERROR] Full error details:`, error);
+            console.error(`🚨 [CLIENT ERROR] Error name: ${error.name}`);
+            console.error(`🚨 [CLIENT ERROR] Error message: ${error.message}`);
+            console.error(`🚨 [CLIENT ERROR] Error stack:`, error.stack);
+
+            // Log specific import-related error details
+            if (error.message.includes('404') || error.message.includes('Failed to fetch') || error.message.includes('import')) {
+                console.error(`🚨 [CLIENT ERROR] Import failed - this is likely a 404 error`);
+                console.error(`🚨 [CLIENT ERROR] Attempted URL: ${window.location.origin}/process/processWordleFromImage.js`);
+            }
+
+            logUploadEvent('UPLOAD_ERROR', 'Image processing failed', {
                 name: file.name,
-                error: e.target.error
+                error: error.message,
+                errorName: error.name,
+                userMessage: error.userMessage,
+                fullError: error.toString()
             });
 
-            showUploadStatus('❌ Failed to read the image file. Please try again.', 'error');
-        };
+            // Show user-friendly error message
+            const errorMessage = error.userMessage || 'Failed to process the image. Please try again with a clearer screenshot.';
+            showUploadStatus(`❌ ${errorMessage}`, 'error');
 
-        reader.readAsDataURL(file);
+        } finally {
+            // Reset button state
+            uploadButton.disabled = false;
+            uploadButton.textContent = '📷 Upload Screenshot';
+        }
     }
 
     // Upload button click handler

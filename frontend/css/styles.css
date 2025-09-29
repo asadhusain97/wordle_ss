@@ -119,6 +119,12 @@ h1 {
     border: 1px solid rgba(255, 107, 107, 0.3);
 }
 
+.upload-status.processing {
+    background-color: rgba(74, 144, 226, 0.2);
+    color: #4a90e2;
+    border: 1px solid rgba(74, 144, 226, 0.3);
+}
+
 .upload-status.hidden {
     display: none;
 }

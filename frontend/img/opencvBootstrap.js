@@ -3,8 +3,9 @@
  * Handles OpenCV initialization, canvas operations, and ImageBitmap conversions
  */
 
-// Debug timing constant - how long to display each debug image (in seconds)
-const DEBUG_DISPLAY_DURATION = 0.1;
+// Debug configuration - control visual debugging features
+const DEBUG = false; // Set to false to disable visual debug images and delays
+const DEBUG_DISPLAY_DURATION = 0.1; // Seconds to display debug images (only when DEBUG = true)
 
 /**
  * Ensures OpenCV.js is ready for use
@@ -165,6 +166,8 @@ export function matFromImageBitmapSmart(imgBitmap) {
  * @param {number} maxWidth - Maximum width for display (default 300px)
  */
 export function debugShowMat(mat, label = 'Debug Mat', maxWidth = 300) {
+    if (!DEBUG) return; // Skip if DEBUG is disabled
+
     try {
         console.group(`🖼️ [DEBUG IMAGE] ${label}`);
 
@@ -258,6 +261,8 @@ export function debugShowMat(mat, label = 'Debug Mat', maxWidth = 300) {
  * @param {number} maxWidth - Maximum width for display (default 300px)
  */
 export function debugShowImageBitmap(imgBitmap, label = 'Debug ImageBitmap', maxWidth = 300) {
+    if (!DEBUG) return; // Skip if DEBUG is disabled
+
     try {
         console.group(`🖼️ [DEBUG IMAGE] ${label}`);
 

@@ -10,8 +10,9 @@ import { warpGridTopDown, sliceTilesAdaptive } from '../img/warpAndTiles.js';
 import { extractGridData, extractIndividualTileData, GridUnreadableError } from '../img/colorAndOCR.js';
 import { resetIndexGrid, applyGridToDOM } from '../ui/applyGrid.js';
 
-// Debug timing constant - how long to display each debug image (in seconds)
-const DEBUG_DISPLAY_DURATION = 0.5;
+// Debug configuration - control visual debugging features
+const DEBUG = false; // Set to false to disable visual debug images and delays
+const DEBUG_DISPLAY_DURATION = 0.5; // Seconds to display debug images (only when DEBUG = true)
 
 /**
  * Debug utility: Wait for specified duration to allow visual inspection
@@ -19,6 +20,8 @@ const DEBUG_DISPLAY_DURATION = 0.5;
  * @param {string} stepName - Name of the step being debugged
  */
 async function debugWait(seconds = DEBUG_DISPLAY_DURATION, stepName = 'Debug Step') {
+    if (!DEBUG) return; // Skip wait if DEBUG is disabled
+
     console.log(`⏳ [DEBUG WAIT] Pausing ${seconds}s for visual inspection of: ${stepName}`);
     await new Promise(resolve => setTimeout(resolve, seconds * 1000));
     console.log(`✅ [DEBUG WAIT] Continuing after ${seconds}s delay`);

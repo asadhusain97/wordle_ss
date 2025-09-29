@@ -5,6 +5,10 @@
 
 import { sliceTiles } from './warpAndTiles.js';
 
+// Debug configuration - control visual debugging features
+const DEBUG = true; // Set to false to disable visual debug images and delays
+const DEBUG_DISPLAY_DURATION = 0.1; // Seconds to display debug images (only when DEBUG = true)
+
 /**
  * Helper function to display a canvas on the page temporarily for debugging
  * @param {HTMLCanvasElement} canvas - Canvas to display
@@ -12,7 +16,9 @@ import { sliceTiles } from './warpAndTiles.js';
  * @param {number} duration - Duration to display in milliseconds
  * @returns {Promise} Promise that resolves when display time is complete
  */
-function displayDebugCanvas(canvas, label, duration = 3000) {
+function displayDebugCanvas(canvas, label, duration = DEBUG_DISPLAY_DURATION * 1000) {
+    if (!DEBUG) return Promise.resolve(); // Skip if DEBUG is disabled
+
     return new Promise((resolve) => {
         // Create container div
         const container = document.createElement('div');
@@ -300,7 +306,7 @@ export async function ocrTileLetters(tiles) {
     const { createWorker, PSM } = Tesseract;
 
     console.log('[OCR] 🎯 Initializing Tesseract worker...');
-    const worker = await createWorker({ logger: () => {} });
+    const worker = await createWorker({ logger: () => { } });
 
     try {
         await worker.loadLanguage('eng');

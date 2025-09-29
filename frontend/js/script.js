@@ -1,4 +1,8 @@
 document.addEventListener('DOMContentLoaded', function () {
+    // Debug configuration - control visual debugging features
+    const DEBUG = false; // Set to false to disable visual debug images and delays
+    const DEBUG_DISPLAY_DURATION = 0.5; // Seconds to display debug images (only when DEBUG = true)
+
     const gridCells = document.querySelectorAll('.grid-cell');
     const solveButton = document.getElementById('solve-button');
     const colorClasses = ['grey-cell', 'yellow-cell', 'green-cell'];
@@ -11,11 +15,10 @@ document.addEventListener('DOMContentLoaded', function () {
     let currentActiveIndex = 0;
     let isProcessingInput = false;
 
-    // Debug timing constant - how long to display each debug image (in seconds)
-    const DEBUG_DISPLAY_DURATION = 1;
-
     // Debug utility: Display uploaded file in console
     function debugShowFile(file, label = 'Debug File') {
+        if (!DEBUG) return; // Skip if DEBUG is disabled
+
         try {
             console.group(`🖼️ [DEBUG IMAGE] ${label}`);
 

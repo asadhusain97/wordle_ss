@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const gridCells = document.querySelectorAll('.grid-cell');
     const solveButton = document.getElementById('solve-button');
     const colorClasses = ['grey-cell', 'yellow-cell', 'green-cell'];
@@ -7,10 +7,10 @@ document.addEventListener('DOMContentLoaded', function() {
     let isProcessingInput = false;
 
     // Initialize all cells with grey-cell class
-    gridCells.forEach((cell, index) => {
+    gridCells.forEach((cell) => {
         cell.classList.add('grey-cell');
         cell.setAttribute('data-color-index', '0');
-        // Remove contenteditable to prevent cursor appearance
+        // Remove content editable to prevent cursor appearance
         cell.removeAttribute('contenteditable');
     });
 
@@ -27,6 +27,73 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize with first cell active
     setActiveCell(0);
+
+    // Function to check if first row is complete (5 letters)
+    function isFirstRowComplete() {
+        for (let i = 0; i < 5; i++) {
+            if (gridCells[i].textContent.trim() === '') {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Function to update solve button state
+    function updateSolveButtonState() {
+        if (isFirstRowComplete()) {
+            solveButton.disabled = false;
+        } else {
+            solveButton.disabled = true;
+        }
+    }
+
+    // Initialize solve button as disabled
+    updateSolveButtonState();
+
+    // Function to check if a row is complete (5 letters)
+    function isRowComplete(rowIndex) {
+        const startIndex = rowIndex * 5;
+        for (let i = 0; i < 5; i++) {
+            if (gridCells[startIndex + i].textContent.trim() === '') {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Function to get the current unlocked row (first incomplete row)
+    function getCurrentUnlockedRow() {
+        for (let row = 0; row < 6; row++) {
+            if (!isRowComplete(row)) {
+                return row;
+            }
+        }
+        return 5; // All rows complete
+    }
+
+    // Function to update row lock states
+    function updateRowStates() {
+        const currentRow = getCurrentUnlockedRow();
+        const gridRows = document.querySelectorAll('.grid-row');
+
+        gridRows.forEach((row, index) => {
+            if (index <= currentRow) {
+                row.classList.remove('locked');
+            } else {
+                row.classList.add('locked');
+            }
+        });
+    }
+
+    // Function to check if a cell is in a locked row
+    function isCellInLockedRow(cellIndex) {
+        const rowIndex = Math.floor(cellIndex / 5);
+        const currentRow = getCurrentUnlockedRow();
+        return rowIndex > currentRow;
+    }
+
+    // Initialize row states (lock rows 2-6)
+    updateRowStates();
 
     // Color cycling functionality
     function cycleColor(cell) {
@@ -45,8 +112,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Add click event listeners for color cycling
     gridCells.forEach((cell, index) => {
-        cell.addEventListener('click', function(e) {
+        cell.addEventListener('click', function (e) {
             e.preventDefault();
+
+            // Prevent interaction with locked cells
+            if (isCellInLockedRow(index)) {
+                return;
+            }
+
             // Set this cell as active when clicked
             setActiveCell(index);
             // Cycle color
@@ -54,21 +127,24 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Find next empty cell in current row or next row
+    // Find next empty cell in current row or next unlocked row
     function findNextEmptyCell(startIndex) {
         const row = Math.floor(startIndex / 5);
         const col = startIndex % 5;
+        const currentUnlockedRow = getCurrentUnlockedRow();
 
-        // Check remaining cells in current row first
-        for (let c = col; c < 5; c++) {
-            const cellIndex = row * 5 + c;
-            if (cellIndex < gridCells.length && gridCells[cellIndex].textContent.trim() === '') {
-                return cellIndex;
+        // Check remaining cells in current row first (only if not locked)
+        if (row <= currentUnlockedRow) {
+            for (let c = col; c < 5; c++) {
+                const cellIndex = row * 5 + c;
+                if (cellIndex < gridCells.length && gridCells[cellIndex].textContent.trim() === '') {
+                    return cellIndex;
+                }
             }
         }
 
-        // Check next rows
-        for (let r = row + 1; r < 6; r++) {
+        // Check next unlocked rows only
+        for (let r = Math.max(row + 1, 0); r <= currentUnlockedRow && r < 6; r++) {
             for (let c = 0; c < 5; c++) {
                 const cellIndex = r * 5 + c;
                 if (cellIndex < gridCells.length && gridCells[cellIndex].textContent.trim() === '') {
@@ -77,12 +153,15 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
-        return -1; // No empty cells found
+        return -1; // No empty cells found in unlocked rows
     }
 
-    // Find last filled cell for backspace
+    // Find last filled cell for backspace (only in unlocked rows)
     function findLastFilledCell() {
-        for (let i = gridCells.length - 1; i >= 0; i--) {
+        const currentUnlockedRow = getCurrentUnlockedRow();
+        const maxIndex = Math.min(gridCells.length - 1, (currentUnlockedRow + 1) * 5 - 1);
+
+        for (let i = maxIndex; i >= 0; i--) {
             if (gridCells[i].textContent.trim() !== '') {
                 return i;
             }
@@ -91,7 +170,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Global keydown event listener for the entire document
-    document.addEventListener('keydown', function(e) {
+    document.addEventListener('keydown', function (e) {
         if (isProcessingInput) return;
         isProcessingInput = true;
 
@@ -99,9 +178,20 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.key.match(/^[a-zA-Z]$/)) {
             e.preventDefault();
 
+            // Prevent typing in locked rows
+            if (isCellInLockedRow(currentActiveIndex)) {
+                return;
+            }
+
             // Set letter in current active cell
             if (currentActiveIndex >= 0 && currentActiveIndex < gridCells.length) {
                 gridCells[currentActiveIndex].textContent = e.key.toUpperCase();
+
+                // Update solve button state after adding letter
+                updateSolveButtonState();
+
+                // Update row states (may unlock next row)
+                updateRowStates();
 
                 // Move to next empty cell
                 const nextEmpty = findNextEmptyCell(currentActiveIndex + 1);
@@ -110,7 +200,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     // If no more empty cells, try to move to next cell in sequence
                     const nextIndex = currentActiveIndex + 1;
-                    if (nextIndex < gridCells.length) {
+                    if (nextIndex < gridCells.length && !isCellInLockedRow(nextIndex)) {
                         setActiveCell(nextIndex);
                     }
                 }
@@ -135,6 +225,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         setActiveCell(lastFilled);
                     }
                 }
+
+                // Update solve button state after removing letter
+                updateSolveButtonState();
+
+                // Update row states (may lock rows that were previously unlocked)
+                updateRowStates();
             }
         }
 
@@ -160,7 +256,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     break;
             }
 
-            if (targetIndex !== currentActiveIndex && targetIndex >= 0 && targetIndex < gridCells.length) {
+            if (targetIndex !== currentActiveIndex && targetIndex >= 0 && targetIndex < gridCells.length && !isCellInLockedRow(targetIndex)) {
                 setActiveCell(targetIndex);
             }
         }
@@ -168,10 +264,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Handle Enter key (prevent default)
         else if (e.key === 'Enter') {
             e.preventDefault();
-            // Move to next row, first column
+            // Move to next row, first column (only if not locked)
             const currentRow = Math.floor(currentActiveIndex / 5);
             const nextRowStart = (currentRow + 1) * 5;
-            if (nextRowStart < gridCells.length) {
+            if (nextRowStart < gridCells.length && !isCellInLockedRow(nextRowStart)) {
                 setActiveCell(nextRowStart);
             }
         }
@@ -182,7 +278,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Prevent any paste operations
-    document.addEventListener('paste', function(e) {
+    document.addEventListener('paste', function (e) {
         e.preventDefault();
     });
 
@@ -198,17 +294,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const errorDiv = document.createElement('div');
         errorDiv.className = 'error-message';
         errorDiv.innerHTML = `⚠️ ${message}`;
-        errorDiv.style.cssText = `
-            color: #ff6b6b;
-            background-color: rgba(255, 107, 107, 0.1);
-            border: 1px solid rgba(255, 107, 107, 0.3);
-            padding: 12px 16px;
-            margin: 15px 0;
-            border-radius: 6px;
-            font-size: 0.95rem;
-            text-align: center;
-            animation: fadeIn 0.3s ease;
-        `;
 
         // Insert error message before the solve button
         solveButton.parentNode.insertBefore(errorDiv, solveButton);
@@ -230,7 +315,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Solve button functionality
-    solveButton.addEventListener('click', function() {
+    solveButton.addEventListener('click', function () {
+        // Prevent action if button is disabled
+        if (solveButton.disabled) {
+            return;
+        }
+
         // Clear any existing errors
         clearError();
 
@@ -282,7 +372,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (incompleteRows.length > 0) {
             const rowText = incompleteRows.length === 1 ? 'row' : 'rows';
             const rowNumbers = incompleteRows.join(', ');
-            showError(`Please complete all words in the grid. ${rowText.charAt(0).toUpperCase() + rowText.slice(1)} ${rowNumbers} ${incompleteRows.length === 1 ? 'has' : 'have'} incomplete words. Each word must be exactly 5 letters.`);
+            showError(`${rowText.charAt(0).toUpperCase() + rowText.slice(1)} ${rowNumbers} ${incompleteRows.length === 1 ? 'has' : 'have'} incomplete word${incompleteRows.length === 1 ? '' : 's'}.`);
             return; // Stop execution
         }
 
@@ -307,7 +397,7 @@ document.addEventListener('DOMContentLoaded', function() {
             compactFormat: compactFormat
         }));
 
-        // If we have valid guesses, try to get results from API
+        // If we have valid guesses, get results from API directly
         if (compactFormat.length > 0) {
             // Show loading state
             solveButton.textContent = 'Solving...';
@@ -321,18 +411,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 body: JSON.stringify({ guesses: compactFormat })
             })
-            .then(response => response.json())
-            .then(data => {
-                // Store API results
-                sessionStorage.setItem('wordleResults', JSON.stringify(data));
-                // Redirect to results page
-                window.location.href = 'results.html';
-            })
-            .catch(error => {
-                console.error('Error calling API:', error);
-                // Still redirect, but without API results
-                window.location.href = 'results.html';
-            });
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Server responded with status ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Store API results
+                    sessionStorage.setItem('wordleResults', JSON.stringify(data));
+                    // Redirect to results page
+                    window.location.href = 'results.html';
+                })
+                .catch(error => {
+                    console.error('Error during solving:', error);
+                    showError('Failed to get solving results. Please try again.');
+
+                    // Reset button state
+                    solveButton.textContent = 'Solve';
+                    solveButton.disabled = false;
+                });
         } else {
             // No valid guesses, redirect directly
             window.location.href = 'results.html';

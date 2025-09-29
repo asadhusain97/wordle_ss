@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const uploadRoute = require('./routes/upload');
-const { solveWordle } = require('./services/wordleSolver');
+const { solveWordle, WordleSolver } = require('./services/wordleSolver');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -32,6 +32,68 @@ app.use('/js', express.static(path.join(__dirname, '../frontend/js'), {
 
 // API Routes
 app.use('/api', uploadRoute);
+
+// Word validation API endpoint
+app.post('/api/validate-words', async (req, res) => {
+    console.log('=== Word Validation API Request ===');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+
+    try {
+        const { words } = req.body;
+
+        if (!words || !Array.isArray(words)) {
+            console.log('❌ Invalid request: words must be an array');
+            return res.status(400).json({
+                error: 'Invalid request: words must be an array',
+                received: typeof words
+            });
+        }
+
+        if (words.length === 0) {
+            console.log('ℹ️ No words provided for validation');
+            return res.json({
+                isValid: true,
+                invalidWords: [],
+                totalChecked: 0,
+                message: 'No words to validate'
+            });
+        }
+
+        // Create a temporary solver instance for word validation
+        const solver = new WordleSolver();
+        console.log('🔍 Validating words against Wordle word list...');
+
+        const validation = solver.validateWords(words);
+
+        console.log('✅ Validation result:', JSON.stringify(validation, null, 2));
+
+        const response = {
+            isValid: validation.isValid,
+            invalidWords: validation.invalidWords,
+            totalChecked: validation.totalChecked
+        };
+
+        if (!validation.isValid) {
+            const wordText = validation.invalidWords.length === 1 ? 'word' : 'words';
+            response.message = `${validation.invalidWords.length} ${wordText} not found in Wordle word list: ${validation.invalidWords.join(', ')}`;
+        } else {
+            response.message = `All ${validation.totalChecked} words are valid Wordle words`;
+        }
+
+        console.log('📤 Sending validation response:', JSON.stringify(response, null, 2));
+        res.json(response);
+
+    } catch (error) {
+        console.error('❌ Error validating words:', error);
+        console.error('Error stack:', error.stack);
+
+        res.status(500).json({
+            error: 'Failed to validate words',
+            details: error.message,
+            isValid: false
+        });
+    }
+});
 
 // Wordle solver API endpoint
 app.post('/api/get-results', async (req, res) => {
@@ -145,6 +207,7 @@ app.use((req, res) => {
             'GET /',
             'GET /results.html',
             'POST /api/upload',
+            'POST /api/validate-words',
             'POST /api/get-results',
             'GET /api/health'
         ]
@@ -171,6 +234,7 @@ app.listen(PORT, () => {
     console.log('   GET  /                - Main page');
     console.log('   GET  /results.html    - Results page');
     console.log('   POST /api/upload      - Upload image');
+    console.log('   POST /api/validate-words - Validate Wordle words');
     console.log('   POST /api/get-results - Solve wordle');
     console.log('   GET  /api/health      - Health check');
     console.log('🚀 =================================');

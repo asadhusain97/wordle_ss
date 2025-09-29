@@ -147,6 +147,32 @@ class WordleSolver {
             throw new Error(`Failed to get game state: ${error.message}`);
         }
     }
+
+    validateWords(words) {
+        try {
+            this.logger.log(`Validating ${words.length} words against Wordle word list`);
+
+            const wordList = this.solver.wordlist;
+            const invalidWords = [];
+
+            words.forEach(word => {
+                const normalizedWord = word.toLowerCase();
+                if (!wordList.includes(normalizedWord)) {
+                    invalidWords.push(word.toUpperCase());
+                    this.logger.log(`Invalid word found: "${word}"`);
+                }
+            });
+
+            return {
+                isValid: invalidWords.length === 0,
+                invalidWords: invalidWords,
+                totalChecked: words.length
+            };
+        } catch (error) {
+            this.logger.error('Error validating words:', error);
+            throw new Error(`Failed to validate words: ${error.message}`);
+        }
+    }
 }
 
 function solveWordle(guesses, options = {}) {

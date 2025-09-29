@@ -3,8 +3,142 @@ document.addEventListener('DOMContentLoaded', function () {
     const solveButton = document.getElementById('solve-button');
     const colorClasses = ['grey-cell', 'yellow-cell', 'green-cell'];
 
+    // Image upload elements
+    const uploadButton = document.getElementById('upload-button');
+    const fileInput = document.getElementById('screenshot-upload');
+    const uploadStatus = document.getElementById('upload-status');
+
     let currentActiveIndex = 0;
     let isProcessingInput = false;
+
+    // Image upload functionality
+    function logUploadEvent(type, message, data = null) {
+        const timestamp = new Date().toISOString();
+        console.log(`[UPLOAD ${timestamp}] ${type}: ${message}`, data || '');
+    }
+
+    function showUploadStatus(message, type) {
+        uploadStatus.textContent = message;
+        uploadStatus.className = `upload-status ${type}`;
+
+        // Auto-hide after 5 seconds for success messages
+        if (type === 'success') {
+            setTimeout(() => {
+                uploadStatus.className = 'upload-status hidden';
+            }, 5000);
+        }
+    }
+
+    function validateImageFile(file) {
+        logUploadEvent('VALIDATION', 'Starting file validation', {
+            name: file.name,
+            size: file.size,
+            type: file.type
+        });
+
+        // Check if file exists
+        if (!file) {
+            logUploadEvent('VALIDATION_ERROR', 'No file selected');
+            return { valid: false, error: 'No file selected.' };
+        }
+
+        // Check file type
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'];
+        if (!validTypes.includes(file.type)) {
+            logUploadEvent('VALIDATION_ERROR', 'Invalid file type', { type: file.type });
+            return { valid: false, error: 'Please select a valid image file (PNG, JPG, JPEG, GIF, WebP, or BMP).' };
+        }
+
+        // Check file size (10MB limit)
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        if (file.size > maxSize) {
+            logUploadEvent('VALIDATION_ERROR', 'File too large', { size: file.size, maxSize });
+            return { valid: false, error: 'Image file is too large. Please select a file smaller than 10MB.' };
+        }
+
+        // Check file name for potential security issues
+        const dangerousChars = /[<>:"/\\|?*]/;
+        if (dangerousChars.test(file.name)) {
+            logUploadEvent('VALIDATION_ERROR', 'Unsafe filename characters detected', { name: file.name });
+            return { valid: false, error: 'Image filename contains unsafe characters. Please rename the file.' };
+        }
+
+        logUploadEvent('VALIDATION_SUCCESS', 'File validation passed', {
+            name: file.name,
+            size: file.size,
+            type: file.type
+        });
+
+        return { valid: true };
+    }
+
+    function handleImageUpload(file) {
+        logUploadEvent('UPLOAD_START', 'Beginning image processing', {
+            name: file.name,
+            size: file.size,
+            type: file.type
+        });
+
+        const reader = new FileReader();
+
+        reader.onload = function(e) {
+            logUploadEvent('UPLOAD_SUCCESS', 'Image successfully read', {
+                name: file.name,
+                dataSize: e.target.result.length
+            });
+
+            showUploadStatus(`✅ Image "${file.name}" uploaded successfully! Image processing will be implemented in a future update.`, 'success');
+        };
+
+        reader.onerror = function(e) {
+            logUploadEvent('UPLOAD_ERROR', 'Failed to read image file', {
+                name: file.name,
+                error: e.target.error
+            });
+
+            showUploadStatus('❌ Failed to read the image file. Please try again.', 'error');
+        };
+
+        reader.readAsDataURL(file);
+    }
+
+    // Upload button click handler
+    uploadButton.addEventListener('click', function() {
+        logUploadEvent('USER_ACTION', 'Upload button clicked');
+        fileInput.click();
+    });
+
+    // File input change handler
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+
+        if (!file) {
+            logUploadEvent('USER_ACTION', 'File input cancelled - no file selected');
+            return;
+        }
+
+        logUploadEvent('USER_ACTION', 'File selected for upload', {
+            name: file.name,
+            size: file.size,
+            type: file.type
+        });
+
+        // Validate the file
+        const validation = validateImageFile(file);
+
+        if (!validation.valid) {
+            showUploadStatus(`❌ ${validation.error}`, 'error');
+            // Clear the input so the same file can be selected again after fixing
+            fileInput.value = '';
+            return;
+        }
+
+        // Process the valid image
+        handleImageUpload(file);
+
+        // Clear the input so the same file can be selected again
+        fileInput.value = '';
+    });
 
     // Initialize all cells with grey-cell class
     gridCells.forEach((cell) => {

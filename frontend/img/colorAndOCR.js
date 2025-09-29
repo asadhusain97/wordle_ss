@@ -300,7 +300,7 @@ export async function ocrTileLetters(tiles) {
     const { createWorker, PSM } = Tesseract;
 
     console.log('[OCR] 🎯 Initializing Tesseract worker...');
-    const worker = await createWorker({ logger: null });
+    const worker = await createWorker({ logger: () => {} });
 
     try {
         await worker.loadLanguage('eng');
@@ -311,7 +311,9 @@ export async function ocrTileLetters(tiles) {
 
         await worker.setParameters({
             tessedit_pageseg_mode: PSM.SINGLE_CHAR,
-            tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+            tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+            tessedit_ocr_engine_mode: 1,
+            preserve_interword_spaces: '0',
         });
         console.log('[OCR] ✅ Parameters configured for single character recognition');
 
@@ -376,8 +378,7 @@ export async function ocrTileLetters(tiles) {
 
                 // This smooths noise and helps the thresholding.
                 blurred = new cv.Mat();
-                cv.GaussianBlur(gray, blurred, new cv.Size(1, 1), 0, 0, cv.BORDER_DEFAULT);
-
+                cv.GaussianBlur(gray, blurred, new cv.Size(3, 3), 0, 0, cv.BORDER_DEFAULT);
 
                 // Debug: Show grayscale result and check emptiness
                 grayCanvas = document.createElement('canvas');
@@ -397,12 +398,7 @@ export async function ocrTileLetters(tiles) {
 
                 // Step 2: Apply adaptive thresholding
                 thresh = new cv.Mat();
-                // First, find the optimal threshold value using Otsu's method.
-                const otsuThresholdValue = cv.threshold(blurred, thresh, 0, 255, cv.THRESH_OTSU);
-
-                // Now, apply a "weaker" truncation effect instead of a hard binary split.
-                // This preserves more of the original pixel data.
-                cv.threshold(blurred, thresh, otsuThresholdValue, 255, cv.THRESH_TRUNC);
+                cv.threshold(blurred, thresh, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU);
 
                 // Debug: Show threshold result
                 threshCanvas = document.createElement('canvas');
@@ -433,11 +429,7 @@ export async function ocrTileLetters(tiles) {
                 // Invert the flood-filled image back
                 cv.bitwise_not(floodfill, floodfill);
 
-                // Combine the original thresholded image with the filled-in areas
-                filled = new cv.Mat();
-                cv.bitwise_or(thresh, floodfill, filled);
-
-                // Debug: Show floodfill result
+                // Debug: Show filled result
                 finalCanvas = document.createElement('canvas');
                 finalCanvas.width = floodfill.cols;
                 finalCanvas.height = floodfill.rows;
@@ -452,43 +444,24 @@ export async function ocrTileLetters(tiles) {
                     await displayDebugCanvas(finalCanvas, `Tile ${i + 1}/30 - Flood Filled`, 2000);
                 }
 
-                // Step 3: Invert to enhance glyphs
-                inverted = new cv.Mat();
-                cv.bitwise_not(thresh, inverted);
-
-                // Debug: Show inverted result
-                finalCanvas = document.createElement('canvas');
-                finalCanvas.width = inverted.cols;
-                finalCanvas.height = inverted.rows;
-                cv.imshow(finalCanvas, inverted);
-                if (i <= debugCount) { // Only log first few tiles to avoid clutter
-                    console.log(`[OCR] ⚪ Final processed tile ${i + 1}:`, {
-                        size: `${inverted.cols}x${inverted.rows}`,
-                        dataURL: finalCanvas.toDataURL()
-                    });
-
-                    // Display final processed tile on screen
-                    await displayDebugCanvas(finalCanvas, `Tile ${i + 1}/30 - Final (Ready for OCR)`, 2000);
-                }
-
                 console.log(`[OCR] 📸 Preprocessing completed for tile ${i + 1}`);
 
-                // Pass canvas/ImageData to worker.recognize
-                const canvas = document.createElement('canvas');
-                canvas.width = inverted.cols;
-                canvas.height = inverted.rows;
-                const ctx = canvas.getContext('2d');
+                // Create a proper canvas with cv.imshow to avoid data corruption
+                const ocrCanvas = document.createElement('canvas');
+                ocrCanvas.width = floodfill.cols;
+                ocrCanvas.height = floodfill.rows;
+                cv.imshow(ocrCanvas, floodfill);
 
-                const imageData = ctx.createImageData(canvas.width, canvas.height);
-                const data = imageData.data;
-                for (let j = 0; j < inverted.data.length; j++) {
-                    data[j * 4] = inverted.data[j];     // R
-                    data[j * 4 + 1] = inverted.data[j]; // G
-                    data[j * 4 + 2] = inverted.data[j]; // B
-                    data[j * 4 + 3] = 255;              // A
+                // Validate canvas before passing to Tesseract
+                if (!ocrCanvas || ocrCanvas.width === 0 || ocrCanvas.height === 0) {
+                    console.warn(`[OCR] ⚠️ Invalid canvas for tile ${i + 1}, skipping OCR`);
+                    results.push(null);
+                    failCount++;
+                    continue;
                 }
 
-                const { data: { text, confidence } } = await worker.recognize(imageData);
+                // Pass canvas directly to Tesseract (not ImageData)
+                const { data: { text, confidence } } = await worker.recognize(ocrCanvas);
 
                 // If low confidence or empty, treat as null
                 const cleanText = text.trim().toUpperCase().replace(/[^A-Z]/g, '');

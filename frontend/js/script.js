@@ -87,11 +87,11 @@ document.addEventListener('DOMContentLoaded', function () {
         try {
             // Import the processing function dynamically
             logUploadEvent('MODULE_IMPORT', 'Starting dynamic import of processWordleFromImage.js');
-            console.log(`🔍 [CLIENT] Attempting to import: /process/processWordleFromImage.js`);
+            console.log(`🔍 [CLIENT] Attempting to import: frontend/process/processWordleFromImage.js`);
             console.log(`🔍 [CLIENT] Current location: ${window.location.origin}${window.location.pathname}`);
-            console.log(`🔍 [CLIENT] Full URL will be: ${window.location.origin}/process/processWordleFromImage.js`);
+            console.log(`🔍 [CLIENT] Relative import path: frontend/process/processWordleFromImage.js`);
 
-            const { processAndPopulateGrid } = await import('/process/processWordleFromImage.js');
+            const { processAndPopulateGrid } = await import('/frontend/process/processWordleFromImage.js');
 
             logUploadEvent('MODULE_IMPORT_SUCCESS', 'Successfully imported processWordleFromImage.js module');
 
@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', function () {
             // Log specific import-related error details
             if (error.message.includes('404') || error.message.includes('Failed to fetch') || error.message.includes('import')) {
                 console.error(`🚨 [CLIENT ERROR] Import failed - this is likely a 404 error`);
-                console.error(`🚨 [CLIENT ERROR] Attempted URL: ${window.location.origin}/process/processWordleFromImage.js`);
+                console.error(`🚨 [CLIENT ERROR] Attempted import path: ./process/processWordleFromImage.js`);
             }
 
             logUploadEvent('UPLOAD_ERROR', 'Image processing failed', {
@@ -138,13 +138,13 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Upload button click handler
-    uploadButton.addEventListener('click', function() {
+    uploadButton.addEventListener('click', function () {
         logUploadEvent('USER_ACTION', 'Upload button clicked');
         fileInput.click();
     });
 
     // File input change handler
-    fileInput.addEventListener('change', function(e) {
+    fileInput.addEventListener('change', function (e) {
         const file = e.target.files[0];
 
         if (!file) {

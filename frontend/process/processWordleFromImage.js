@@ -5,7 +5,7 @@
 
 import { ensureOpenCVReady, decodeFileToImageBitmap, matFromImageBitmapSmart } from '../img/opencvBootstrap.js';
 import { detectWordleGrid, GridNotFoundError } from '../img/gridDetect.js';
-import { warpGridTopDown } from '../img/warpAndTiles.js';
+import { warpGridTopDown, sliceTilesAdaptive } from '../img/warpAndTiles.js';
 import { extractGridData, GridUnreadableError } from '../img/colorAndOCR.js';
 import { resetIndexGrid, applyGridToDOM } from '../ui/applyGrid.js';
 

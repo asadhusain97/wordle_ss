@@ -3,6 +3,22 @@
  * Handles geometric transformation and tile slicing
  */
 
+import { debugShowMat } from './opencvBootstrap.js';
+
+// Debug timing constant - how long to display each debug image (in seconds)
+const DEBUG_DISPLAY_DURATION = 5;
+
+/**
+ * Debug utility: Wait for specified duration to allow visual inspection
+ * @param {number} seconds - Number of seconds to wait
+ * @param {string} stepName - Name of the step being debugged
+ */
+async function debugWait(seconds = DEBUG_DISPLAY_DURATION, stepName = 'Debug Step') {
+    console.log(`⏳ [DEBUG WAIT] Pausing ${seconds}s for visual inspection of: ${stepName}`);
+    await new Promise(resolve => setTimeout(resolve, seconds * 1000));
+    console.log(`✅ [DEBUG WAIT] Continuing after ${seconds}s delay`);
+}
+
 /**
  * Performs perspective transformation to create top-down view of grid
  * @param {cv.Mat} srcMat - Source image matrix
@@ -87,7 +103,7 @@ export function warpGridTopDown(srcMat, cornersTLTRBRBL, outSize = { w: 500, h: 
  * @param {number} cols - Number of columns (default 5)
  * @returns {cv.Mat[]} Array of 30 tile matrices in row-major order
  */
-export function sliceTiles(gridMat, rows = 6, cols = 5) {
+export async function sliceTiles(gridMat, rows = 6, cols = 5) {
     console.log('[TILES] 🔄 Starting tile extraction...', {
         gridSize: `${gridMat.cols}x${gridMat.rows}`,
         gridLayout: `${rows}x${cols}`
@@ -134,6 +150,21 @@ export function sliceTiles(gridMat, rows = 6, cols = 5) {
             extractedTiles: tiles.length,
             expectedTiles: rows * cols
         });
+
+        // 🖼️ DEBUG: Show first few tiles as samples
+        if (tiles.length > 0) {
+            console.group('🔍 [DEBUG] Sample Extracted Tiles');
+
+            // Show first 6 tiles (first row) with delays
+            for (let i = 0; i < Math.min(6, tiles.length); i++) {
+                if (tiles[i] && !tiles[i].empty()) {
+                    debugShowMat(tiles[i], `5️⃣ Tile ${i} (Row ${Math.floor(i/5)}, Col ${i%5})`);
+                    await debugWait(DEBUG_DISPLAY_DURATION, `Tile ${i} (Row ${Math.floor(i/5)}, Col ${i%5})`);
+                }
+            }
+
+            console.groupEnd();
+        }
 
         // Return array of 30 Mats in row-major order
         return tiles;

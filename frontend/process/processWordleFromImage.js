@@ -3,11 +3,26 @@
  * Coordinates all image processing modules and applies results to DOM
  */
 
-import { ensureOpenCVReady, decodeFileToImageBitmap, matFromImageBitmapSmart } from '../img/opencvBootstrap.js';
+import { ensureOpenCVReady, decodeFileToImageBitmap, matFromImageBitmapSmart, debugShowMat, debugShowImageBitmap } from '../img/opencvBootstrap.js';
+
 import { detectWordleGrid, GridNotFoundError } from '../img/gridDetect.js';
 import { warpGridTopDown, sliceTilesAdaptive } from '../img/warpAndTiles.js';
-import { extractGridData, GridUnreadableError } from '../img/colorAndOCR.js';
+import { extractGridData, extractIndividualTileData, GridUnreadableError } from '../img/colorAndOCR.js';
 import { resetIndexGrid, applyGridToDOM } from '../ui/applyGrid.js';
+
+// Debug timing constant - how long to display each debug image (in seconds)
+const DEBUG_DISPLAY_DURATION = 2;
+
+/**
+ * Debug utility: Wait for specified duration to allow visual inspection
+ * @param {number} seconds - Number of seconds to wait
+ * @param {string} stepName - Name of the step being debugged
+ */
+async function debugWait(seconds = DEBUG_DISPLAY_DURATION, stepName = 'Debug Step') {
+    console.log(`⏳ [DEBUG WAIT] Pausing ${seconds}s for visual inspection of: ${stepName}`);
+    await new Promise(resolve => setTimeout(resolve, seconds * 1000));
+    console.log(`✅ [DEBUG WAIT] Continuing after ${seconds}s delay`);
+}
 
 /**
  * Processing pipeline state for debugging and recovery
@@ -142,22 +157,33 @@ export async function processAndPopulateGrid(file) {
     console.log('[PIPELINE] 🔄 Step 2: Decoding image file...');
     const imgBitmap = await decodeFileToImageBitmap(file);
 
+    // 🖼️ DEBUG: Show original uploaded image
+    debugShowImageBitmap(imgBitmap, '1️⃣ Original Uploaded Image');
+    await debugWait(DEBUG_DISPLAY_DURATION, 'Original Uploaded Image');
+
     console.log('[PIPELINE] 🔄 Step 3: Creating OpenCV matrix...');
     const src = matFromImageBitmapSmart(imgBitmap);
 
-    try {
-        console.log('[PIPELINE] 🔄 Step 4: Detecting Wordle grid...');
-        const { cornersTLTRBRBL } = detectWordleGrid(src);
+    // 🖼️ DEBUG: Show OpenCV source matrix
+    debugShowMat(src, '2️⃣ OpenCV Source Matrix');
+    await debugWait(DEBUG_DISPLAY_DURATION, 'OpenCV Source Matrix');
 
-        console.log('[PIPELINE] 🔄 Step 5: Applying perspective warp...');
-        const gridTopDown = warpGridTopDown(src, cornersTLTRBRBL, { w: 500, h: 600 });
+    try {
+        console.log('[PIPELINE] 🔄 Step 4: Detecting individual Wordle tiles...');
+        const { tiles } = await detectWordleGrid(src);
+
+        console.log('[PIPELINE] 🔄 Step 5: Processing individual tiles (colors + OCR)...');
+        console.log('[PIPELINE] 📊 Individual tile processing:', {
+            detectedTiles: tiles.length,
+            expectedTiles: 30
+        });
 
         let grid;
         try {
-            console.log('[PIPELINE] 🔄 Step 6: Extracting grid data (colors + OCR)...');
-            grid = await extractGridData(gridTopDown);
+            // Process each individual tile instead of using a warped grid
+            grid = await extractIndividualTileData(src, tiles);
 
-            console.log('[PIPELINE] 🔄 Step 7: Applying results to DOM...');
+            console.log('[PIPELINE] 🔄 Step 6: Applying results to DOM...');
             resetIndexGrid();
             applyGridToDOM(grid);
 
@@ -167,15 +193,14 @@ export async function processAndPopulateGrid(file) {
             console.log('[PIPELINE] 📊 Final results:', {
                 totalCells: grid.length,
                 filledCells: grid.filter(item => item.letter).length,
-                nonGrayCells: grid.filter(item => item.color !== 'gray').length
+                nonGrayCells: grid.filter(item => item.color !== 'gray').length,
+                tilesProcessed: tiles.length
             });
 
             return { grid };
         } finally {
-            if (gridTopDown) {
-                console.log('[PIPELINE] 🧹 Cleaning up warped grid matrix...');
-                gridTopDown.delete();
-            }
+            // No cleanup needed for individual tiles approach
+            console.log('[PIPELINE] 🧹 Individual tile processing completed');
         }
 
     } catch (error) {
@@ -185,14 +210,25 @@ export async function processAndPopulateGrid(file) {
         console.error('[PIPELINE] ❌ Error:', error.message);
         throw error;
     } finally {
-        if (src) {
-            console.log('[PIPELINE] 🧹 Cleaning up source matrix...');
-            src.delete();
+        // Memory safety - defensive cleanup
+        try {
+            if (src && !src.isDeleted()) {
+                console.log('[PIPELINE] 🧹 Cleaning up source matrix...');
+                src.delete();
+            }
+        } catch (error) {
+            console.warn('[PIPELINE] ⚠️ Source matrix cleanup failed:', error.message);
         }
-        if (imgBitmap && typeof imgBitmap.close === 'function') {
-            console.log('[PIPELINE] 🧹 Cleaning up ImageBitmap...');
-            imgBitmap.close();
+
+        try {
+            if (imgBitmap && typeof imgBitmap.close === 'function') {
+                console.log('[PIPELINE] 🧹 Cleaning up ImageBitmap...');
+                imgBitmap.close();
+            }
+        } catch (error) {
+            console.warn('[PIPELINE] ⚠️ ImageBitmap cleanup failed:', error.message);
         }
+
         console.log('[PIPELINE] 🧹 Memory cleanup completed');
     }
 }
@@ -254,7 +290,7 @@ export async function checkSystemHealth() {
 
     health.overall = health.opencv && health.tesseract;
     logProcessingStep('HEALTH_CHECK', `System health: ${health.overall ? 'READY' : 'NOT READY'}`,
-                     health.overall ? 'info' : 'warn');
+        health.overall ? 'info' : 'warn');
 
     return health;
 }

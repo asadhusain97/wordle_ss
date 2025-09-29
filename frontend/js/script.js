@@ -11,6 +11,90 @@ document.addEventListener('DOMContentLoaded', function () {
     let currentActiveIndex = 0;
     let isProcessingInput = false;
 
+    // Debug timing constant - how long to display each debug image (in seconds)
+    const DEBUG_DISPLAY_DURATION = 5;
+
+    // Debug utility: Display uploaded file in console
+    function debugShowFile(file, label = 'Debug File') {
+        try {
+            console.group(`🖼️ [DEBUG IMAGE] ${label}`);
+
+            // Create URL for the file
+            const url = URL.createObjectURL(file);
+
+            // Log file info
+            console.log('📊 File Info:', {
+                name: file.name,
+                size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+                type: file.type,
+                lastModified: new Date(file.lastModified).toISOString()
+            });
+
+            // Method 1: Direct URL (works in most browsers)
+            console.log('📸 Visual (copy this URL to address bar):', url);
+
+            // Method 2: Create image element
+            const img = new Image();
+            img.onload = function() {
+                console.log('📸 Loaded Image:', this);
+            };
+            img.src = url;
+            img.style.maxWidth = '300px';
+            img.style.border = '2px solid #ff6b6b';
+            img.style.borderRadius = '4px';
+
+            // Method 3: Show on page temporarily (most reliable)
+            const debugDiv = document.createElement('div');
+            debugDiv.id = 'debug-image-' + Date.now();
+            debugDiv.style.cssText = `
+                position: fixed;
+                top: 10px;
+                right: 10px;
+                z-index: 9999;
+                background: rgba(0,0,0,0.8);
+                padding: 10px;
+                border-radius: 8px;
+                max-width: 300px;
+            `;
+
+            const debugImg = document.createElement('img');
+            debugImg.src = url;
+            debugImg.style.cssText = `
+                max-width: 280px;
+                max-height: 200px;
+                border-radius: 4px;
+                display: block;
+            `;
+
+            const debugLabel = document.createElement('div');
+            debugLabel.textContent = label;
+            debugLabel.style.cssText = `
+                color: white;
+                font-size: 12px;
+                margin-bottom: 5px;
+                text-align: center;
+            `;
+
+            debugDiv.appendChild(debugLabel);
+            debugDiv.appendChild(debugImg);
+            document.body.appendChild(debugDiv);
+
+            // Auto-remove after DEBUG_DISPLAY_DURATION seconds
+            setTimeout(() => {
+                if (debugDiv.parentNode) {
+                    debugDiv.remove();
+                }
+                URL.revokeObjectURL(url);
+            }, DEBUG_DISPLAY_DURATION * 1000);
+
+            console.log(`📸 Also displaying on page (top-right corner for ${DEBUG_DISPLAY_DURATION} seconds)`);
+            console.groupEnd();
+
+        } catch (error) {
+            console.error(`[DEBUG IMAGE] Failed to display ${label}:`, error.message);
+        }
+    }
+
     // Image upload functionality
     function logUploadEvent(type, message, data = null) {
         const timestamp = new Date().toISOString();
@@ -167,6 +251,9 @@ document.addEventListener('DOMContentLoaded', function () {
             fileInput.value = '';
             return;
         }
+
+        // 🖼️ DEBUG: Show original file before processing
+        debugShowFile(file, '0️⃣ Original File Before Processing');
 
         // Process the valid image
         handleImageUpload(file);

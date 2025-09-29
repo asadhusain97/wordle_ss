@@ -3,6 +3,9 @@
  * Handles OpenCV initialization, canvas operations, and ImageBitmap conversions
  */
 
+// Debug timing constant - how long to display each debug image (in seconds)
+const DEBUG_DISPLAY_DURATION = 5;
+
 /**
  * Ensures OpenCV.js is ready for use
  * @returns {Promise<void>} Resolves when OpenCV is fully initialized
@@ -152,5 +155,191 @@ export function matFromImageBitmapSmart(imgBitmap) {
         const mat = matFromImageBitmapFallback(imgBitmap);
         console.log('[OPENCV] ✅ Fallback method succeeded');
         return mat;
+    }
+}
+
+/**
+ * Debug utility: Display OpenCV Mat as image in console
+ * @param {cv.Mat} mat - OpenCV Mat to display
+ * @param {string} label - Label for the debug output
+ * @param {number} maxWidth - Maximum width for display (default 300px)
+ */
+export function debugShowMat(mat, label = 'Debug Mat', maxWidth = 300) {
+    try {
+        console.group(`🖼️ [DEBUG IMAGE] ${label}`);
+
+        // Create canvas to convert Mat to image
+        const canvas = document.createElement('canvas');
+        cv.imshow(canvas, mat);
+
+        // Create image element for console display
+        const img = new Image();
+        img.src = canvas.toDataURL();
+        img.style.maxWidth = maxWidth + 'px';
+        img.style.border = '2px solid #007acc';
+        img.style.borderRadius = '4px';
+
+        // Log image info
+        console.log('📊 Image Info:', {
+            size: `${mat.cols}x${mat.rows}`,
+            channels: mat.channels(),
+            type: mat.type(),
+            depth: mat.depth()
+        });
+
+        // Method 1: Log canvas data URL (copy this to address bar to see image)
+        const dataURL = canvas.toDataURL();
+        console.log('📸 Visual (copy this URL to address bar):', dataURL);
+
+        // Method 2: Log canvas element for inspection
+        console.log('💾 Canvas (right-click to save):');
+        console.log(canvas);
+
+        // Method 3: Show on page temporarily (most reliable visual debugging)
+        const debugDiv = document.createElement('div');
+        debugDiv.id = 'debug-opencv-' + Date.now();
+        debugDiv.style.cssText = `
+            position: fixed;
+            top: ${20 + (Math.random() * 200)}px;
+            right: ${20 + (Math.random() * 50)}px;
+            z-index: 9999;
+            background: rgba(0,0,0,0.9);
+            padding: 10px;
+            border-radius: 8px;
+            max-width: ${maxWidth + 20}px;
+            border: 2px solid #007acc;
+        `;
+
+        const debugImg = document.createElement('img');
+        debugImg.src = dataURL;
+        debugImg.style.cssText = `
+            max-width: ${maxWidth}px;
+            border-radius: 4px;
+            display: block;
+        `;
+
+        const debugLabel = document.createElement('div');
+        debugLabel.textContent = label;
+        debugLabel.style.cssText = `
+            color: white;
+            font-size: 11px;
+            margin-bottom: 5px;
+            text-align: center;
+            font-family: monospace;
+        `;
+
+        debugDiv.appendChild(debugLabel);
+        debugDiv.appendChild(debugImg);
+        document.body.appendChild(debugDiv);
+
+        // Auto-remove after DEBUG_DISPLAY_DURATION seconds
+        setTimeout(() => {
+            if (debugDiv.parentNode) {
+                debugDiv.remove();
+            }
+        }, DEBUG_DISPLAY_DURATION * 1000);
+
+        console.log(`📸 Also displaying on page (right side for ${DEBUG_DISPLAY_DURATION} seconds)`);
+
+        console.groupEnd();
+
+        // Clean up temporary canvas
+        canvas.remove();
+
+    } catch (error) {
+        console.error(`[DEBUG IMAGE] Failed to display ${label}:`, error.message);
+    }
+}
+
+/**
+ * Debug utility: Display ImageBitmap in console
+ * @param {ImageBitmap} imgBitmap - ImageBitmap to display
+ * @param {string} label - Label for the debug output
+ * @param {number} maxWidth - Maximum width for display (default 300px)
+ */
+export function debugShowImageBitmap(imgBitmap, label = 'Debug ImageBitmap', maxWidth = 300) {
+    try {
+        console.group(`🖼️ [DEBUG IMAGE] ${label}`);
+
+        // Create canvas to display ImageBitmap
+        const canvas = document.createElement('canvas');
+        canvas.width = imgBitmap.width;
+        canvas.height = imgBitmap.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(imgBitmap, 0, 0);
+
+        // Create image element for console display
+        const img = new Image();
+        img.src = canvas.toDataURL();
+        img.style.maxWidth = maxWidth + 'px';
+        img.style.border = '2px solid #28a745';
+        img.style.borderRadius = '4px';
+
+        // Log image info
+        console.log('📊 Image Info:', {
+            size: `${imgBitmap.width}x${imgBitmap.height}`
+        });
+
+        // Display image in console
+        console.log('📸 Visual:');
+        console.log(img);
+
+        // Also log the canvas for downloading
+        console.log('💾 Canvas (right-click to save):');
+        console.log(canvas);
+
+        // Show on page temporarily (most reliable visual debugging)
+        const debugDiv = document.createElement('div');
+        debugDiv.id = 'debug-imagebitmap-' + Date.now();
+        debugDiv.style.cssText = `
+            position: fixed;
+            top: ${20 + (Math.random() * 200)}px;
+            left: ${20 + (Math.random() * 50)}px;
+            z-index: 9999;
+            background: rgba(40, 167, 69, 0.9);
+            padding: 10px;
+            border-radius: 8px;
+            max-width: ${maxWidth + 20}px;
+            border: 2px solid #28a745;
+        `;
+
+        const debugImg = document.createElement('img');
+        debugImg.src = canvas.toDataURL();
+        debugImg.style.cssText = `
+            max-width: ${maxWidth}px;
+            border-radius: 4px;
+            display: block;
+        `;
+
+        const debugLabel = document.createElement('div');
+        debugLabel.textContent = label;
+        debugLabel.style.cssText = `
+            color: white;
+            font-size: 11px;
+            margin-bottom: 5px;
+            text-align: center;
+            font-family: monospace;
+        `;
+
+        debugDiv.appendChild(debugLabel);
+        debugDiv.appendChild(debugImg);
+        document.body.appendChild(debugDiv);
+
+        // Auto-remove after DEBUG_DISPLAY_DURATION seconds
+        setTimeout(() => {
+            if (debugDiv.parentNode) {
+                debugDiv.remove();
+            }
+        }, DEBUG_DISPLAY_DURATION * 1000);
+
+        console.log(`📸 Also displaying on page (left side for ${DEBUG_DISPLAY_DURATION} seconds)`);
+
+        console.groupEnd();
+
+        // Clean up
+        canvas.remove();
+
+    } catch (error) {
+        console.error(`[DEBUG IMAGE] Failed to display ${label}:`, error.message);
     }
 }

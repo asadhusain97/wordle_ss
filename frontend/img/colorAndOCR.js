@@ -293,3 +293,120 @@ export async function extractGridData(gridMat) {
         }
     }
 }
+
+/**
+ * Extract data from individual tile locations (NEW approach)
+ * @param {cv.Mat} srcMat - Source image matrix
+ * @param {Array} tiles - Array of tile objects with positions and boundaries
+ * @returns {Promise<Array<{row: number, col: number, letter: string|null, color: string}>>} Grid data
+ */
+export async function extractIndividualTileData(srcMat, tiles) {
+    console.log('[EXTRACT_TILES] 🔄 Starting individual tile data extraction...', {
+        sourceSize: `${srcMat.cols}x${srcMat.rows}`,
+        tileCount: tiles.length
+    });
+
+    const tileMats = [];
+    const gridData = [];
+
+    try {
+        // Step 1: Extract tile regions from source image
+        console.log('[EXTRACT_TILES] 🔄 Step 1: Extracting tile regions...');
+
+        for (let i = 0; i < tiles.length; i++) {
+            const tile = tiles[i];
+
+            try {
+                // Use bounding rectangle to extract tile region
+                const rect = tile.boundingRect;
+
+                // Add some padding to ensure we capture the full tile
+                const padding = 5;
+                const expandedRect = new cv.Rect(
+                    Math.max(0, rect.x - padding),
+                    Math.max(0, rect.y - padding),
+                    Math.min(srcMat.cols - (rect.x - padding), rect.width + 2 * padding),
+                    Math.min(srcMat.rows - (rect.y - padding), rect.height + 2 * padding)
+                );
+
+                // Extract tile region
+                const tileRegion = srcMat.roi(expandedRect);
+
+                // Resize to standard size for consistent processing
+                const standardTile = new cv.Mat();
+                cv.resize(tileRegion, standardTile, new cv.Size(80, 80), 0, 0, cv.INTER_CUBIC);
+
+                tileMats.push(standardTile);
+                tileRegion.delete();
+
+                console.log(`[EXTRACT_TILES] ✅ Extracted tile ${i} at position (${tile.row}, ${tile.col})`);
+
+            } catch (error) {
+                console.error(`[EXTRACT_TILES] ❌ Failed to extract tile ${i}:`, error.message);
+                // Create empty tile as fallback
+                const emptyTile = cv.Mat.zeros(80, 80, cv.CV_8UC4);
+                tileMats.push(emptyTile);
+            }
+        }
+
+        // Step 2: Classify tile colors
+        console.log('[EXTRACT_TILES] 🔄 Step 2: Classifying tile colors...');
+        const colors = [];
+
+        for (let i = 0; i < tileMats.length; i++) {
+            const tile = tileMats[i];
+            const color = classifyTileColor(tile);
+            colors.push(color);
+
+            console.log(`[EXTRACT_TILES] 🎨 Tile ${i} color: ${color}`);
+        }
+
+        // Step 3: OCR for letters
+        console.log('[EXTRACT_TILES] 🔄 Step 3: Running OCR on tiles...');
+        const letters = await ocrTileLetters(tileMats);
+
+        // Step 4: Build structured grid data
+        console.log('[EXTRACT_TILES] 🔄 Step 4: Building structured grid data...');
+
+        for (let i = 0; i < tiles.length; i++) {
+            const tile = tiles[i];
+            const letter = letters[i] || null;
+            const color = colors[i] || 'gray';
+
+            // Only include cells that have content (letter or non-gray color)
+            if (letter || color !== 'gray') {
+                gridData.push({
+                    row: tile.row,
+                    col: tile.col,
+                    letter: letter,
+                    color: color
+                });
+            }
+
+            if (i < 5) { // Log first few for debugging
+                console.log(`[EXTRACT_TILES] 📊 Tile (${tile.row},${tile.col}): "${letter}" [${color}]`);
+            }
+        }
+
+        console.log('[EXTRACT_TILES] ✅ Individual tile extraction completed', {
+            tilesProcessed: tiles.length,
+            gridDataItems: gridData.length,
+            filledCells: gridData.filter(item => item.letter).length,
+            coloredCells: gridData.filter(item => item.color !== 'gray').length
+        });
+
+        return gridData;
+
+    } catch (error) {
+        console.error('[EXTRACT_TILES] ❌ Tile extraction failed:', error.message);
+        throw new GridUnreadableError(`Individual tile processing failed: ${error.message}`);
+    } finally {
+        // Cleanup tile matrices
+        tileMats.forEach(tileMat => {
+            if (tileMat && typeof tileMat.delete === 'function') {
+                tileMat.delete();
+            }
+        });
+        console.log('[EXTRACT_TILES] 🧹 Cleaned up tile matrices');
+    }
+}

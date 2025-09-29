@@ -6,6 +6,67 @@
 import { sliceTiles } from './warpAndTiles.js';
 
 /**
+ * Helper function to display a canvas on the page temporarily for debugging
+ * @param {HTMLCanvasElement} canvas - Canvas to display
+ * @param {string} label - Label for the debug image
+ * @param {number} duration - Duration to display in milliseconds
+ * @returns {Promise} Promise that resolves when display time is complete
+ */
+function displayDebugCanvas(canvas, label, duration = 3000) {
+    return new Promise((resolve) => {
+        // Create container div
+        const container = document.createElement('div');
+        container.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            padding: 10px;
+            border-radius: 8px;
+            color: white;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 10000;
+            max-width: 300px;
+        `;
+
+        // Add label
+        const labelDiv = document.createElement('div');
+        labelDiv.textContent = label;
+        labelDiv.style.cssText = `
+            margin-bottom: 5px;
+            font-weight: bold;
+            text-align: center;
+        `;
+        container.appendChild(labelDiv);
+
+        // Style the canvas for display
+        const displayCanvas = canvas.cloneNode();
+        const ctx = displayCanvas.getContext('2d');
+        ctx.drawImage(canvas, 0, 0);
+
+        displayCanvas.style.cssText = `
+            max-width: 280px;
+            max-height: 280px;
+            border: 1px solid #ccc;
+            background: white;
+        `;
+        container.appendChild(displayCanvas);
+
+        // Add to page
+        document.body.appendChild(container);
+
+        // Remove after duration
+        setTimeout(() => {
+            if (container.parentNode) {
+                container.parentNode.removeChild(container);
+            }
+            resolve();
+        }, duration);
+    });
+}
+
+/**
  * Custom error for when grid tiles cannot be read properly
  */
 export class GridUnreadableError extends Error {
@@ -67,11 +128,97 @@ function meanHSV(tileMat) {
  * @returns {'green'|'yellow'|'gray'} Classified color
  */
 /**
- * --- HIGHLIGHT: State flag for optimization ---
- * This flag persists across multiple calls to classifyTileColor.
- * It must be reset to 'false' before processing a new grid.
+ * --- HIGHLIGHT: State flags for optimization ---
+ * These flags persist across multiple calls and must be reset before processing a new grid.
  */
 let grayBlankDetected = false;
+let blankTileDetected = false;
+
+/**
+ * Reset optimization flags before processing a new grid
+ */
+export function resetOptimizationFlags() {
+    grayBlankDetected = false;
+    blankTileDetected = false;
+    console.log('[OPTIMIZATION] 🔄 Flags reset for new grid processing');
+}
+
+/**
+ * Detect if a tile is blank using histogram analysis
+ * @param {cv.Mat} tileMat - Input tile matrix
+ * @param {number} tolerance - Tolerance for blank detection (default: 5 pixels)
+ * @returns {boolean} True if tile is considered blank
+ */
+function isTileBlankHist(tileMat, tolerance = 15) {
+    let gray, hist, mask, srcVec;
+
+    try {
+        // Convert to grayscale if needed
+        gray = new cv.Mat();
+        if (tileMat.channels() === 3 || tileMat.channels() === 4) {
+            cv.cvtColor(tileMat, gray, cv.COLOR_RGBA2GRAY);
+        } else {
+            gray = tileMat.clone();
+        }
+
+        // Create MatVector for calcHist (it expects an array of Mats)
+        srcVec = new cv.MatVector();
+        srcVec.push_back(gray);
+
+        // Compute histogram
+        hist = new cv.Mat();
+        mask = new cv.Mat(); // Empty mask means use whole image
+        cv.calcHist(srcVec, [0], mask, hist, [256], [0, 256]);
+
+        let maxVal = 0;
+        for (let i = 0; i < hist.rows; i++) {
+            if (hist.data32F[i] > maxVal) maxVal = hist.data32F[i];
+        }
+
+        // If 99%+ pixels match, tile is blank
+        let totalPixels = tileMat.rows * tileMat.cols;
+        const emptyMetric = (maxVal / totalPixels) * 100;
+        const isBlank = emptyMetric > (100 - tolerance);
+        console.log('[OCR] 🔘 Blank tile check:', { isBlank, emptyMetric: emptyMetric.toFixed(1) });
+        return isBlank;
+
+    } finally {
+        if (gray) gray.delete();
+        if (srcVec) srcVec.delete();
+        if (mask) mask.delete();
+        if (hist) hist.delete();
+    }
+}
+
+/**
+ * Crops a cv.Mat by x pixels from all sides.
+ * @param {cv.Mat} tileMat The input image tile to crop.
+ * @returns {cv.Mat} A new, cropped cv.Mat.
+ */
+function cropBorder(tileMat, cropSize = 10) {
+    // Define a rectangle for the Region of Interest (ROI).
+    // The parameters are (x, y, width, height).
+    const rect = new cv.Rect(
+        cropSize,                  // The starting x-coordinate.
+        cropSize,                  // The starting y-coordinate.
+        tileMat.cols - cropSize * 2,  // The new width (original width - xpx left - xpx right).
+        tileMat.rows - cropSize * 2   // The new height (original height - xpx top - xpx bottom).
+    );
+
+    // Create a new matrix header for the ROI without copying data.
+    const cropped = tileMat.roi(rect);
+
+    // It's good practice to clone the ROI if you plan to modify it
+    // or if the original tileMat might be deleted.
+    const finalImage = cropped.clone();
+
+    // Clean up the temporary ROI header.
+    cropped.delete();
+
+    return finalImage;
+}
+
+
 export function classifyTileColor(tileMat) {
     /**
      * --- HIGHLIGHT: Optimization shortcut ---
@@ -171,23 +318,158 @@ export async function ocrTileLetters(tiles) {
         const results = [];
         let successCount = 0;
         let failCount = 0;
+        let debugCount = 5;
 
         for (let i = 0; i < tiles.length; i++) {
             const tile = tiles[i];
-            let gray, thresh, inverted;
+            let croppedTile, gray, blurred, thresh, floodfill, filled, inverted, originalCanvas, grayCanvas, threshCanvas, finalCanvas;
 
             try {
                 console.log(`[OCR] 🎯 Processing tile ${i + 1}/${tiles.length}...`);
 
-                // Preprocess: gray -> adaptive threshold -> invert to enhance glyphs
+                // OPTIMIZATION: Skip processing if blank tiles already detected
+                if (blankTileDetected) {
+                    console.log(`[OCR] ⏭️  Tile ${i + 1} skipped - blank tiles detected, assuming rest are blank`);
+                    results.push(null);
+                    continue;
+                }
+
+                // Check if tile is blank before expensive preprocessing
+                if (isTileBlankHist(tile)) {
+                    console.log(`[OCR] ⬜ Tile ${i + 1} detected as blank - setting optimization flag`);
+                    blankTileDetected = true;
+                    results.push(null);
+                    continue;
+                }
+
+                // Debug: Log input tile info
+                if (i <= debugCount) { // Only log first few tiles to avoid clutter
+                    console.log(`[OCR] 📊 Input tile ${i + 1} info:`, {
+                        size: `${tile.cols}x${tile.rows}`,
+                        channels: tile.channels(),
+                        type: tile.type(),
+                        dataLength: tile.data.length
+                    });
+                }
+
+
+                // Create debug canvas for original tile
+                originalCanvas = document.createElement('canvas');
+                originalCanvas.width = tile.cols;
+                originalCanvas.height = tile.rows;
+                cv.imshow(originalCanvas, tile);
+
+                if (i <= debugCount) { // Only log first few tiles to avoid clutter
+                    console.log(`[OCR] 🖼️  Original tile ${i + 1}:`, originalCanvas.toDataURL());
+
+                    // Display original tile on screen
+                    await displayDebugCanvas(originalCanvas, `Tile ${i + 1}/30 - Original`, 1000);
+
+                }
+
+                // Step 0:Crop the border from all sides.
+                croppedTile = cropBorder(tile);
+
+                // Step 1: Convert to grayscale and blur
                 gray = new cv.Mat();
-                cv.cvtColor(tile, gray, cv.COLOR_RGBA2GRAY);
+                cv.cvtColor(croppedTile, gray, cv.COLOR_RGBA2GRAY);
 
+                // This smooths noise and helps the thresholding.
+                blurred = new cv.Mat();
+                cv.GaussianBlur(gray, blurred, new cv.Size(1, 1), 0, 0, cv.BORDER_DEFAULT);
+
+
+                // Debug: Show grayscale result and check emptiness
+                grayCanvas = document.createElement('canvas');
+                grayCanvas.width = gray.cols;
+                grayCanvas.height = gray.rows;
+                cv.imshow(grayCanvas, gray);
+
+                if (i <= debugCount) { // Only log first few tiles to avoid clutter
+                    console.log(`[OCR] 🔘 Grayscale tile ${i + 1}:`, {
+                        size: `${gray.cols}x${gray.rows}`,
+                        dataURL: grayCanvas.toDataURL()
+                    });
+
+                    // Display grayscale tile on screen
+                    await displayDebugCanvas(grayCanvas, `Tile ${i + 1}/30 - Grayscale`, 1000);
+                }
+
+                // Step 2: Apply adaptive thresholding
                 thresh = new cv.Mat();
-                cv.adaptiveThreshold(gray, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2);
+                // First, find the optimal threshold value using Otsu's method.
+                const otsuThresholdValue = cv.threshold(blurred, thresh, 0, 255, cv.THRESH_OTSU);
 
+                // Now, apply a "weaker" truncation effect instead of a hard binary split.
+                // This preserves more of the original pixel data.
+                cv.threshold(blurred, thresh, otsuThresholdValue, 255, cv.THRESH_TRUNC);
+
+                // Debug: Show threshold result
+                threshCanvas = document.createElement('canvas');
+                threshCanvas.width = thresh.cols;
+                threshCanvas.height = thresh.rows;
+                cv.imshow(threshCanvas, thresh);
+                if (i <= debugCount) { // Only log first few tiles to avoid clutter
+                    console.log(`[OCR] ⚫ Thresholded tile ${i + 1}:`, {
+                        size: `${thresh.cols}x${thresh.rows}`,
+                        dataURL: threshCanvas.toDataURL()
+                    });
+                    // Display thresholded tile on screen
+                    await displayDebugCanvas(threshCanvas, `Tile ${i + 1}/30 - Thresholded`, 1000);
+                }
+
+                // Step 2.5: Flood fill to remove border artifacts (if any)
+                // Create a copy to flood fill, leaving the original threshold intact
+                floodfill = thresh.clone();
+                cv.bitwise_not(floodfill, floodfill); // Invert for flood fill
+                // Create a mask for flood fill
+                let mask = new cv.Mat();
+                mask.create(floodfill.rows + 2, floodfill.cols + 2, cv.CV_8UC1);
+                mask.setTo(new cv.Scalar(0));
+
+                // Perform the flood fill from the top-left corner
+                cv.floodFill(floodfill, mask, new cv.Point(0, 0), new cv.Scalar(255));
+
+                // Invert the flood-filled image back
+                cv.bitwise_not(floodfill, floodfill);
+
+                // Combine the original thresholded image with the filled-in areas
+                filled = new cv.Mat();
+                cv.bitwise_or(thresh, floodfill, filled);
+
+                // Debug: Show floodfill result
+                finalCanvas = document.createElement('canvas');
+                finalCanvas.width = floodfill.cols;
+                finalCanvas.height = floodfill.rows;
+                cv.imshow(finalCanvas, floodfill);
+                if (i <= debugCount) { // Only log first few tiles to avoid clutter
+                    console.log(`[OCR] Flood Filled tile ${i + 1}:`, {
+                        size: `${floodfill.cols}x${floodfill.rows}`,
+                        dataURL: finalCanvas.toDataURL()
+                    });
+
+                    // Display final processed tile on screen
+                    await displayDebugCanvas(finalCanvas, `Tile ${i + 1}/30 - Flood Filled`, 2000);
+                }
+
+                // Step 3: Invert to enhance glyphs
                 inverted = new cv.Mat();
                 cv.bitwise_not(thresh, inverted);
+
+                // Debug: Show inverted result
+                finalCanvas = document.createElement('canvas');
+                finalCanvas.width = inverted.cols;
+                finalCanvas.height = inverted.rows;
+                cv.imshow(finalCanvas, inverted);
+                if (i <= debugCount) { // Only log first few tiles to avoid clutter
+                    console.log(`[OCR] ⚪ Final processed tile ${i + 1}:`, {
+                        size: `${inverted.cols}x${inverted.rows}`,
+                        dataURL: finalCanvas.toDataURL()
+                    });
+
+                    // Display final processed tile on screen
+                    await displayDebugCanvas(finalCanvas, `Tile ${i + 1}/30 - Final (Ready for OCR)`, 2000);
+                }
 
                 console.log(`[OCR] 📸 Preprocessing completed for tile ${i + 1}`);
 
@@ -226,17 +508,30 @@ export async function ocrTileLetters(tiles) {
                 results.push(null);
                 failCount++;
             } finally {
+                // Clean up OpenCV matrices
                 if (gray) gray.delete();
                 if (thresh) thresh.delete();
                 if (inverted) inverted.delete();
+                if (croppedTile) croppedTile.delete();
+                if (blurred) blurred.delete();
+                if (floodfill) floodfill.delete();
+                if (filled) filled.delete();
+                // Clean up debug canvases (optional - browser will GC them)
+                if (originalCanvas) originalCanvas.remove();
+                if (grayCanvas) grayCanvas.remove();
+                if (threshCanvas) threshCanvas.remove();
+                if (finalCanvas) finalCanvas.remove();
             }
         }
 
+        const skippedCount = tiles.length - successCount - failCount;
         console.log('[OCR] ✅ OCR processing completed', {
             totalTiles: tiles.length,
             successCount,
             failCount,
-            successRate: Math.round((successCount / tiles.length) * 100) + '%'
+            skippedCount,
+            successRate: Math.round((successCount / tiles.length) * 100) + '%',
+            optimizationUsed: blankTileDetected ? 'Blank tile detection' : 'None'
         });
 
         return results; // array of length tiles.length with uppercase letters or null
@@ -257,6 +552,9 @@ export async function extractGridData(gridMat) {
     console.log('[EXTRACT] 🔄 Starting grid data extraction...', {
         gridSize: `${gridMat.cols}x${gridMat.rows}`
     });
+
+    // Reset optimization flags for new grid processing
+    resetOptimizationFlags();
 
     let tiles;
 
@@ -350,6 +648,9 @@ export async function extractIndividualTileData(srcMat, tiles) {
         sourceSize: `${srcMat.cols}x${srcMat.rows}`,
         tileCount: tiles.length
     });
+
+    // Reset optimization flags for new grid processing
+    resetOptimizationFlags();
 
     const tileMats = [];
     const gridData = [];

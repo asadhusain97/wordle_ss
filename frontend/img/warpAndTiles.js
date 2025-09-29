@@ -6,7 +6,7 @@
 import { debugShowMat } from './opencvBootstrap.js';
 
 // Debug timing constant - how long to display each debug image (in seconds)
-const DEBUG_DISPLAY_DURATION = 2;
+const DEBUG_DISPLAY_DURATION = 0.1;
 
 /**
  * Debug utility: Wait for specified duration to allow visual inspection

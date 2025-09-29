@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let isProcessingInput = false;
 
     // Debug timing constant - how long to display each debug image (in seconds)
-    const DEBUG_DISPLAY_DURATION = 5;
+    const DEBUG_DISPLAY_DURATION = 1;
 
     // Debug utility: Display uploaded file in console
     function debugShowFile(file, label = 'Debug File') {
@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             // Method 2: Create image element
             const img = new Image();
-            img.onload = function() {
+            img.onload = function () {
                 console.log('📸 Loaded Image:', this);
             };
             img.src = url;

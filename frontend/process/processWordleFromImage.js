@@ -11,7 +11,7 @@ import { extractGridData, extractIndividualTileData, GridUnreadableError } from 
 import { resetIndexGrid, applyGridToDOM } from '../ui/applyGrid.js';
 
 // Debug timing constant - how long to display each debug image (in seconds)
-const DEBUG_DISPLAY_DURATION = 2;
+const DEBUG_DISPLAY_DURATION = 0.5;
 
 /**
  * Debug utility: Wait for specified duration to allow visual inspection

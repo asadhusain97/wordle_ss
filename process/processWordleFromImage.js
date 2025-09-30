@@ -3,12 +3,12 @@
  * Coordinates all image processing modules and applies results to DOM
  */
 
-import { ensureOpenCVReady, decodeFileToImageBitmap, matFromImageBitmapSmart, debugShowMat, debugShowImageBitmap } from '../img/opencvBootstrap.js';
+import { ensureOpenCVReady, decodeFileToImageBitmap, matFromImageBitmapSmart, debugShowMat, debugShowImageBitmap } from './opencvBootstrap.js';
 
-import { detectWordleGrid, GridNotFoundError } from '../img/gridDetect.js';
-import { warpGridTopDown, sliceTilesAdaptive } from '../img/warpAndTiles.js';
-import { extractGridData, extractIndividualTileData, GridUnreadableError } from '../img/colorAndOCR.js';
-import { resetIndexGrid, applyGridToDOM } from '../applyGrid.js';
+import { detectWordleGrid, GridNotFoundError } from './gridDetect.js';
+import { warpGridTopDown, sliceTilesAdaptive } from './warpAndTiles.js';
+import { extractGridData, extractIndividualTileData, GridUnreadableError } from './colorAndOCR.js';
+import { resetIndexGrid, applyGridToDOM } from './applyGrid.js';
 
 // Debug configuration - control visual debugging features
 const DEBUG = false; // Set to false to disable visual debug images and delays

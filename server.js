@@ -1,8 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const uploadRoute = require('./routes/upload');
-const { solveWordle, WordleSolver } = require('./services/wordleSolver');
+const { solveWordle, WordleSolver } = require('./process/wordleSolver');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,70 +13,28 @@ app.use(express.json());
 // Request logging middleware
 app.use((req, res, next) => {
     console.log(`📝 [REQUEST] ${req.method} ${req.url} - ${new Date().toISOString()}`);
-    console.log(`📝 [REQUEST] Headers:`, JSON.stringify(req.headers, null, 2));
     next();
 });
 
-// IMPORTANT: Specific route handlers must come BEFORE the generic static handler
-// to ensure correct Content-Type headers for ES modules
-
-// Serve CSS with correct content type
-app.use('/css', express.static(path.join(__dirname, '../frontend/css'), {
+// Serve static files from root directory
+app.use(express.static(__dirname, {
     setHeaders: (res, filePath) => {
-        if (filePath.endsWith('.css')) {
+        if (filePath.endsWith('.js')) {
+            res.setHeader('Content-Type', 'application/javascript');
+        } else if (filePath.endsWith('.css')) {
             res.setHeader('Content-Type', 'text/css');
         }
     }
 }));
 
-// Serve JS files with correct content type
-app.use('/js', express.static(path.join(__dirname, '../frontend/js'), {
+// Serve process directory files (for results-script.js and other modules)
+app.use('/process', express.static(path.join(__dirname, 'process'), {
     setHeaders: (res, filePath) => {
         if (filePath.endsWith('.js')) {
             res.setHeader('Content-Type', 'application/javascript');
         }
     }
 }));
-
-// Serve image processing modules with correct content type
-app.use('/img', express.static(path.join(__dirname, '../frontend/img'), {
-    setHeaders: (res, filePath) => {
-        if (filePath.endsWith('.js')) {
-            res.setHeader('Content-Type', 'application/javascript');
-        }
-    }
-}));
-
-// Serve UI modules with correct content type
-app.use('/ui', express.static(path.join(__dirname, '../frontend/ui'), {
-    setHeaders: (res, filePath) => {
-        if (filePath.endsWith('.js')) {
-            res.setHeader('Content-Type', 'application/javascript');
-        }
-    }
-}));
-
-// Serve process modules with correct content type
-app.use('/process', (req, res, next) => {
-    console.log(`🔍 [PROCESS ROUTE] Request: ${req.method} ${req.url}`);
-    console.log(`🔍 [PROCESS ROUTE] Full path: ${req.path}`);
-    console.log(`🔍 [PROCESS ROUTE] Looking for file at: ${path.join(__dirname, '../frontend/process', req.url)}`);
-    next();
-}, express.static(path.join(__dirname, '../frontend/process'), {
-    setHeaders: (res, filePath) => {
-        console.log(`🔍 [PROCESS ROUTE] Setting headers for: ${filePath}`);
-        if (filePath.endsWith('.js')) {
-            console.log(`🔍 [PROCESS ROUTE] Setting Content-Type to application/javascript`);
-            res.setHeader('Content-Type', 'application/javascript');
-        }
-    }
-}));
-
-// Generic static handler - MUST come after specific handlers
-app.use(express.static(path.join(__dirname, '../frontend')));
-
-// API Routes
-app.use('/api', uploadRoute);
 
 // Word validation API endpoint
 app.post('/api/validate-words', async (req, res) => {
@@ -145,12 +102,10 @@ app.post('/api/validate-words', async (req, res) => {
 app.post('/api/get-results', async (req, res) => {
     console.log('=== Wordle Solver API Request ===');
     console.log('Request body:', JSON.stringify(req.body, null, 2));
-    console.log('Request headers:', req.headers);
 
     try {
         const { guesses } = req.body;
 
-        // Log the incoming guesses
         console.log('Processing guesses:', guesses);
 
         if (!guesses || !Array.isArray(guesses)) {
@@ -232,15 +187,16 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// Serve frontend
+// Serve main page
 app.get('/', (req, res) => {
     console.log('📄 Serving main page');
-    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// Serve results page
 app.get('/results.html', (req, res) => {
     console.log('📄 Serving results page');
-    res.sendFile(path.join(__dirname, '../frontend/results.html'));
+    res.sendFile(path.join(__dirname, 'results.html'));
 });
 
 // Handle 404s
@@ -252,7 +208,6 @@ app.use((req, res) => {
         availableRoutes: [
             'GET /',
             'GET /results.html',
-            'POST /api/upload',
             'POST /api/validate-words',
             'POST /api/get-results',
             'GET /api/health'
@@ -279,7 +234,6 @@ app.listen(PORT, () => {
     console.log('📡 Available endpoints:');
     console.log('   GET  /                - Main page');
     console.log('   GET  /results.html    - Results page');
-    console.log('   POST /api/upload      - Upload image');
     console.log('   POST /api/validate-words - Validate Wordle words');
     console.log('   POST /api/get-results - Solve wordle');
     console.log('   GET  /api/health      - Health check');

@@ -174,11 +174,11 @@ document.addEventListener('DOMContentLoaded', function () {
         try {
             // Import the processing function dynamically
             logUploadEvent('MODULE_IMPORT', 'Starting dynamic import of processWordleFromImage.js');
-            console.log(`🔍 [CLIENT] Attempting to import: frontend/process/processWordleFromImage.js`);
+            console.log(`🔍 [CLIENT] Attempting to import: /process/processWordleFromImage.js`);
             console.log(`🔍 [CLIENT] Current location: ${window.location.origin}${window.location.pathname}`);
-            console.log(`🔍 [CLIENT] Relative import path: frontend/process/processWordleFromImage.js`);
+            console.log(`🔍 [CLIENT] Relative import path: /process/processWordleFromImage.js`);
 
-            const { processAndPopulateGrid } = await import('./process/processWordleFromImage.js');
+            const { processAndPopulateGrid } = await import('/process/processWordleFromImage.js');
 
             logUploadEvent('MODULE_IMPORT_SUCCESS', 'Successfully imported processWordleFromImage.js module');
 

@@ -194,9 +194,6 @@ async function startServer() {
         const server = app.listen(availablePort, () => {
             console.log('🚀 =================================');
             console.log(`🎯 Wordle Solver SS Server running on http://localhost:${availablePort}`);
-            console.log(`📁 Serving frontend files from current directory`);
-            console.log(`🔧 Backend API available at http://localhost:${availablePort}/api/`);
-            console.log(`🌐 Open http://localhost:${availablePort} in your browser to start!`);
             if (availablePort !== PORT) {
                 console.log(`⚠️  Note: Port ${PORT} was in use, using port ${availablePort} instead`);
             }
@@ -204,10 +201,6 @@ async function startServer() {
             console.log(`📋 Available endpoints:`);
             console.log(`   • GET  /                    - Main Wordle Solver interface`);
             console.log(`   • GET  /results.html        - Results page`);
-            console.log(`   • POST /api/solve           - Solve Wordle puzzle`);
-            console.log(`   • POST /api/get-results     - Get formatted results for frontend`);
-            console.log(`   • GET  /api/example         - Example API usage`);
-            console.log(`   • GET  /api/health          - Health check`);
             console.log('🚀 =================================');
         });
 

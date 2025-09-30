@@ -143,6 +143,11 @@ app.get('/api/health', (req, res) => {
 
 // 404 handler
 app.use((req, res) => {
+    // Silently ignore Chrome DevTools requests
+    if (req.path.includes('/.well-known/')) {
+        return res.status(404).end();
+    }
+
     console.log('❌ 404 - Route not found:', req.path);
     res.status(404).json({
         error: 'Endpoint not found',

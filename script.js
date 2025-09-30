@@ -269,8 +269,49 @@ document.addEventListener('DOMContentLoaded', function () {
     gridCells.forEach((cell) => {
         cell.classList.add('grey-cell');
         cell.setAttribute('data-color-index', '0');
-        // Remove content editable to prevent cursor appearance
-        cell.removeAttribute('contenteditable');
+
+        // Keep contenteditable for mobile keyboard support
+        // Add input event listener for mobile keyboard input
+        cell.addEventListener('input', function(e) {
+            const text = this.textContent;
+            if (text.length > 0) {
+                // Take only the last character and make it uppercase
+                const lastChar = text.slice(-1).toUpperCase();
+                if (lastChar.match(/^[A-Z]$/)) {
+                    this.textContent = lastChar;
+
+                    // Trigger the same logic as keyboard input
+                    const cellIndex = Array.from(gridCells).indexOf(this);
+                    if (!isCellInLockedRow(cellIndex)) {
+                        updateSolveButtonState();
+                        updateRowStates();
+
+                        // Move to next empty cell
+                        const nextEmpty = findNextEmptyCell(cellIndex + 1);
+                        if (nextEmpty !== -1) {
+                            gridCells[nextEmpty].focus();
+                            setActiveCell(nextEmpty);
+                        } else {
+                            const nextIndex = cellIndex + 1;
+                            if (nextIndex < gridCells.length && !isCellInLockedRow(nextIndex)) {
+                                gridCells[nextIndex].focus();
+                                setActiveCell(nextIndex);
+                            }
+                        }
+                    }
+                } else {
+                    this.textContent = '';
+                }
+            }
+        });
+
+        // Handle focus event to set active cell
+        cell.addEventListener('focus', function() {
+            const cellIndex = Array.from(gridCells).indexOf(this);
+            if (!isCellInLockedRow(cellIndex)) {
+                setActiveCell(cellIndex);
+            }
+        });
     });
 
     // Set initial active cell
@@ -284,8 +325,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // Initialize with first cell active
+    // Initialize with first cell active and focused
     setActiveCell(0);
+    gridCells[0].focus();
 
     // Function to check if first row is complete (5 letters)
     function isFirstRowComplete() {
@@ -372,17 +414,22 @@ document.addEventListener('DOMContentLoaded', function () {
     // Add click event listeners for color cycling
     gridCells.forEach((cell, index) => {
         cell.addEventListener('click', function (e) {
-            e.preventDefault();
+            // Don't prevent default - allow focus to work
 
             // Prevent interaction with locked cells
             if (isCellInLockedRow(index)) {
+                e.preventDefault();
                 return;
             }
 
-            // Set this cell as active when clicked
+            // Set this cell as active when clicked and focus it
             setActiveCell(index);
-            // Cycle color
-            cycleColor(this);
+            this.focus();
+
+            // Cycle color only if cell has content
+            if (this.textContent.trim() !== '') {
+                cycleColor(this);
+            }
         });
     });
 

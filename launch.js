@@ -55,7 +55,7 @@ app.get('/results-script.js', (req, res) => {
 });
 
 // Enhanced results endpoint for frontend with comprehensive logging
-app.post('/api/get-results', (req, res) => {
+app.post('/api/get-results', async (req, res) => {
     console.log('=== Wordle Solver API Request ===');
     console.log('Request body:', JSON.stringify(req.body, null, 2));
     console.log('Request headers:', req.headers);

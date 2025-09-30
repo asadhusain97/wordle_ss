@@ -87,7 +87,7 @@ app.post('/api/get-results', (req, res) => {
 
         // Call the solver with more guesses to get better results
         console.log('🔄 Calling wordle solver...');
-        const result = solveWordle(guesses, {
+        const result = await solveWordle(guesses, {
             count: 20, // Get 20 guesses so we can show top 5 + view more
             includeGameState: true
         });
@@ -136,7 +136,7 @@ app.post('/api/get-results', (req, res) => {
 });
 
 // API Routes (backward compatibility)
-app.post('/api/solve', (req, res) => {
+app.post('/api/solve', async (req, res) => {
     try {
         const { guesses, options = {} } = req.body;
 
@@ -149,7 +149,7 @@ app.post('/api/solve', (req, res) => {
             });
         }
 
-        const result = solveWordle(guesses, {
+        const result = await solveWordle(guesses, {
             count: options.count || 10,
             includeGameState: options.includeGameState !== false
         });
@@ -174,24 +174,6 @@ app.get('/api/health', (req, res) => {
         timestamp: new Date().toISOString(),
         service: 'Wordle Solver SS Backend'
     });
-});
-
-// Example endpoint for testing
-app.get('/api/example', (req, res) => {
-    const exampleGuesses = [['arose', 'bybgg']];
-
-    try {
-        const result = solveWordle(exampleGuesses, { count: 5 });
-        res.json({
-            example: {
-                input: exampleGuesses,
-                output: result
-            },
-            message: 'This is an example of how the solver works'
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
 });
 
 // 404 handler

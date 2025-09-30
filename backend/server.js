@@ -174,7 +174,7 @@ app.post('/api/get-results', async (req, res) => {
 
         // Call the solver with more guesses to get better results
         console.log('🔄 Calling wordle solver...');
-        const result = solveWordle(guesses, {
+        const result = await solveWordle(guesses, {
             count: 20, // Get 20 guesses so we can show top 5 + view more
             includeGameState: true
         });

@@ -1,5 +1,17 @@
 const Solver = require('wordle-solver');
 
+// Configuration: Number of candidates to generate and sort
+const CANDIDATE_COUNT = 20;
+
+// Dynamic import for ES module @gueripep/wordle-solver
+let entropyModule = null;
+async function getEntropyModule() {
+    if (!entropyModule) {
+        entropyModule = await import('@gueripep/wordle-solver');
+    }
+    return entropyModule;
+}
+
 class WordleSolver {
     constructor() {
         this.solver = new Solver();
@@ -84,7 +96,7 @@ class WordleSolver {
         }
     }
 
-    getNextBestGuesses(count = 10) {
+    getNextBestGuesses(count = CANDIDATE_COUNT) {
         try {
             const bestGuesses = this.solver.getNextBestGuesses(count);
             this.logger.log(`Top ${count} best guesses:`, bestGuesses);
@@ -106,19 +118,84 @@ class WordleSolver {
         }
     }
 
-    getRankedNextGuesses(count = 10) {
+    /**
+     * Sorts candidates using entropy-based information theory from @gueripep/wordle-solver
+     * @param {number} count - Number of initial candidates to evaluate
+     * @returns {Promise<Array>} - Ranked list sorted by entropy (highest first)
+     */
+    async sortByEntropy(count = CANDIDATE_COUNT) {
         try {
-            const bestGuesses = this.getNextBestGuesses(count);
-            const possibleWords = this.getPossibleWords();
+            // Get initial candidates from the original solver
+            const candidates = this.getNextBestGuesses(count);
 
-            const rankedGuesses = bestGuesses.map((guess, index) => ({
-                rank: index + 1,
-                word: guess,
-                isPossibleAnswer: possibleWords.includes(guess)
-            }));
+            if (!candidates || candidates.length === 0) {
+                throw new Error('No candidates available to sort');
+            }
 
-            this.logger.log(`Ranked list of ${rankedGuesses.length} best next guesses prepared`);
-            return rankedGuesses;
+            this.logger.log(`Sorting ${candidates.length} candidates using entropy calculation...`);
+
+            // Get all possible remaining words as the answer space
+            const possibleAnswers = this.getPossibleWords();
+
+            if (possibleAnswers.length === 0) {
+                throw new Error('No possible answers remaining');
+            }
+
+            this.logger.log(`Evaluating against ${possibleAnswers.length} possible answers`);
+
+            // Load the entropy module
+            const { calculateAverageEntropy } = await getEntropyModule();
+
+            // Calculate entropy for each candidate individually
+            const rankedByEntropy = candidates.map((word) => {
+                try {
+                    const entropy = calculateAverageEntropy(
+                        word.toLowerCase(),
+                        possibleAnswers.map(w => w.toLowerCase())
+                    );
+
+                    return {
+                        word: word.toLowerCase(),
+                        entropy: entropy,
+                        isPossibleAnswer: possibleAnswers.includes(word.toLowerCase())
+                    };
+                } catch (error) {
+                    this.logger.error(`Error calculating entropy for "${word}":`, error.message);
+                    return {
+                        word: word.toLowerCase(),
+                        entropy: 0,
+                        isPossibleAnswer: possibleAnswers.includes(word.toLowerCase()),
+                        error: true
+                    };
+                }
+            });
+
+            // Sort by entropy (highest first)
+            rankedByEntropy.sort((a, b) => b.entropy - a.entropy);
+
+            // Assign ranks
+            rankedByEntropy.forEach((item, index) => {
+                item.rank = index + 1;
+            });
+
+            const topGuess = rankedByEntropy[0];
+            this.logger.log(`Entropy-based ranking complete. Top guess: "${topGuess.word}" with ${topGuess.entropy.toFixed(4)} bits`);
+
+            return rankedByEntropy;
+        } catch (error) {
+            this.logger.error('Error sorting by entropy:', error);
+            throw new Error(`Failed to sort by entropy: ${error.message}`);
+        }
+    }
+
+    async getRankedNextGuesses(count = CANDIDATE_COUNT) {
+        try {
+            // Use entropy-based sorting for better ranking
+            const rankedByEntropy = await this.sortByEntropy(count);
+
+            this.logger.log(`Created ranked list of ${rankedByEntropy.length} guesses using information theory`);
+
+            return rankedByEntropy;
         } catch (error) {
             this.logger.error('Error creating ranked guess list:', error);
             throw new Error(`Failed to create ranked guess list: ${error.message}`);
@@ -134,12 +211,12 @@ class WordleSolver {
     getGameState() {
         try {
             const possibleWords = this.getPossibleWords();
-            const bestGuess = this.getNextBestGuess();
+            const nextBestGuess = possibleWords.length > 0 ? this.getNextBestGuess() : null;
 
             return {
                 remainingPossibilities: possibleWords.length,
-                possibleWords: possibleWords.slice(0, 20),
-                nextBestGuess: bestGuess,
+                possibleWords: possibleWords.slice(0, CANDIDATE_COUNT),
+                nextBestGuess: nextBestGuess,
                 gameComplete: possibleWords.length === 1
             };
         } catch (error) {
@@ -152,16 +229,8 @@ class WordleSolver {
         try {
             this.logger.log(`Validating ${words.length} words against Wordle word list`);
 
-            const wordList = this.solver.wordlist;
-            const invalidWords = [];
-
-            words.forEach(word => {
-                const normalizedWord = word.toLowerCase();
-                if (!wordList.includes(normalizedWord)) {
-                    invalidWords.push(word.toUpperCase());
-                    this.logger.log(`Invalid word found: "${word}"`);
-                }
-            });
+            const allValidWords = this.solver.getAllWords();
+            const invalidWords = words.filter(word => !allValidWords.includes(word.toLowerCase()));
 
             return {
                 isValid: invalidWords.length === 0,
@@ -175,16 +244,18 @@ class WordleSolver {
     }
 }
 
-function solveWordle(guesses, options = {}) {
-    const { count = 10, includeGameState = false } = options;
+async function solveWordle(guesses, options = {}) {
+    const { count = CANDIDATE_COUNT, includeGameState = false } = options;
 
     try {
         const solver = new WordleSolver();
         solver.processGuessResults(guesses);
 
+        const rankedGuesses = await solver.getRankedNextGuesses(count);
+
         const result = {
-            rankedGuesses: solver.getRankedNextGuesses(count),
-            nextBestGuess: solver.getNextBestGuess()
+            rankedGuesses: rankedGuesses,
+            nextBestGuess: rankedGuesses[0].word
         };
 
         if (includeGameState) {
@@ -199,5 +270,6 @@ function solveWordle(guesses, options = {}) {
 
 module.exports = {
     WordleSolver,
-    solveWordle
+    solveWordle,
+    CANDIDATE_COUNT
 };

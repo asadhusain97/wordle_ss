@@ -3,13 +3,62 @@ const Solver = require('wordle-solver');
 // Configuration: Number of candidates to generate and sort
 const CANDIDATE_COUNT = 20;
 
-// Dynamic import for ES module @gueripep/wordle-solver
-let entropyModule = null;
-async function getEntropyModule() {
-    if (!entropyModule) {
-        entropyModule = await import('@gueripep/wordle-solver');
+// Inline entropy calculation for browser compatibility
+function calculateWordleFeedback(guess, target) {
+    const guessLower = guess.toLowerCase();
+    const targetLower = target.toLowerCase();
+    const result = [];
+    const usedTargetIndices = new Set();
+
+    // First pass: mark correct positions (green)
+    for (let i = 0; i < 5; i++) {
+        if (guessLower[i] === targetLower[i]) {
+            result[i] = { letter: guessLower[i], state: 'CORRECT' };
+            usedTargetIndices.add(i);
+        } else {
+            result[i] = { letter: guessLower[i], state: 'ABSENT' };
+        }
     }
-    return entropyModule;
+
+    // Second pass: check for present letters (yellow)
+    for (let i = 0; i < 5; i++) {
+        if (result[i].state === 'ABSENT') {
+            for (let j = 0; j < 5; j++) {
+                if (!usedTargetIndices.has(j) && guessLower[i] === targetLower[j]) {
+                    result[i].state = 'PRESENT';
+                    usedTargetIndices.add(j);
+                    break;
+                }
+            }
+        }
+    }
+    return result;
+}
+
+function feedbackToString(feedback) {
+    return feedback.map(f => `${f.letter}:${f.state}`).join('|');
+}
+
+function calculateAverageEntropy(guess, wordList) {
+    const feedbackCounts = new Map();
+
+    // Calculate feedback for each possible target word
+    for (const target of wordList) {
+        const feedback = calculateWordleFeedback(guess, target);
+        const feedbackKey = feedbackToString(feedback);
+        feedbackCounts.set(feedbackKey, (feedbackCounts.get(feedbackKey) || 0) + 1);
+    }
+
+    // Calculate entropy: sum of -p * log2(p)
+    const totalWords = wordList.length;
+    let entropy = 0;
+    for (const count of feedbackCounts.values()) {
+        const probability = count / totalWords;
+        if (probability > 0) {
+            entropy += probability * (-Math.log2(probability));
+        }
+    }
+    return entropy;
 }
 
 class WordleSolver {
@@ -119,7 +168,7 @@ class WordleSolver {
     }
 
     /**
-     * Sorts candidates using entropy-based information theory from @gueripep/wordle-solver
+     * Sorts candidates using entropy-based information theory from /wordle-solver
      * @param {number} count - Number of initial candidates to evaluate
      * @returns {Promise<Array>} - Ranked list sorted by entropy (highest first)
      */
@@ -143,10 +192,7 @@ class WordleSolver {
 
             this.logger.log(`Evaluating against ${possibleAnswers.length} possible answers`);
 
-            // Load the entropy module
-            const { calculateAverageEntropy } = await getEntropyModule();
-
-            // Calculate entropy for each candidate individually
+            // Use inline entropy calculation (works in both Node and browser)
             const rankedByEntropy = candidates.map((word) => {
                 try {
                     const entropy = calculateAverageEntropy(
@@ -170,8 +216,32 @@ class WordleSolver {
                 }
             });
 
+            // Log entropy scores before sorting (original order from wordle-solver)
+            this.logger.log('=== Original Ranking (from wordle-solver) ===');
+            const originalOrder = candidates.slice(0, 10).map((word, index) => {
+                const matchingEntry = rankedByEntropy.find(item => item.word === word.toLowerCase());
+                this.logger.log(`  ${index + 1}. "${word.toUpperCase()}" → Entropy: ${matchingEntry.entropy.toFixed(4)} bits`);
+                return {
+                    word: word.toLowerCase(),
+                    originalRank: index + 1,
+                    entropy: matchingEntry.entropy
+                };
+            });
+
             // Sort by entropy (highest first)
             rankedByEntropy.sort((a, b) => b.entropy - a.entropy);
+
+            // Log entropy scores after sorting and show rank changes
+            this.logger.log('\n=== After Entropy Sorting (Re-ranked) ===');
+            rankedByEntropy.slice(0, 10).forEach((item, index) => {
+                const newRank = index + 1;
+                const originalData = originalOrder.find(o => o.word === item.word);
+                const oldRank = originalData ? originalData.originalRank : '?';
+                const rankChange = originalData ? (originalData.originalRank - newRank) : 0;
+                const arrow = rankChange > 0 ? `↑${rankChange}` : rankChange < 0 ? `↓${Math.abs(rankChange)}` : '—';
+
+                this.logger.log(`  ${newRank}. "${item.word.toUpperCase()}" → Entropy: ${item.entropy.toFixed(4)} bits [${arrow} was #${oldRank}]`);
+            });
 
             // Assign ranks
             rankedByEntropy.forEach((item, index) => {
@@ -179,7 +249,9 @@ class WordleSolver {
             });
 
             const topGuess = rankedByEntropy[0];
-            this.logger.log(`Entropy-based ranking complete. Top guess: "${topGuess.word}" with ${topGuess.entropy.toFixed(4)} bits`);
+            const originalTopData = originalOrder.find(o => o.word === topGuess.word);
+            const wasRank = originalTopData ? originalTopData.originalRank : '?';
+            this.logger.log(`\n✅ Best guess after entropy sorting: "${topGuess.word.toUpperCase()}" (was #${wasRank}, entropy: ${topGuess.entropy.toFixed(4)} bits)`);
 
             return rankedByEntropy;
         } catch (error) {

@@ -650,46 +650,84 @@ document.addEventListener('DOMContentLoaded', function () {
 
         console.log('Compact Format for API:', compactFormat);
 
+        // Clear old results before solving
+        sessionStorage.removeItem('wordleResults');
+
         // Store data in sessionStorage for the results page
         sessionStorage.setItem('wordleGridData', JSON.stringify({
             fullState: gridState,
             compactFormat: compactFormat
         }));
 
-        // If we have valid guesses, get results from API directly
+        // If we have valid guesses, solve directly in browser
         if (compactFormat.length > 0) {
             // Show loading state
             solveButton.textContent = 'Solving...';
             solveButton.disabled = true;
 
-            // Make API call to get results
-            fetch('/api/get-results', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ guesses: compactFormat })
-            })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`Server responded with status ${response.status}`);
+            // Check if solver is loaded
+            if (!window.WordleSolverModule) {
+                showError('Solver not loaded. Please refresh the page.');
+                solveButton.textContent = 'Solve';
+                solveButton.disabled = false;
+                return;
+            }
+
+            try {
+                const { solveWordle } = window.WordleSolverModule;
+
+                if (!solveWordle) {
+                    showError('Solver function missing. Please refresh the page.');
+                    solveButton.textContent = 'Solve';
+                    solveButton.disabled = false;
+                    return;
+                }
+
+                // Call solver asynchronously
+                solveWordle(compactFormat, {
+                    count: 20,
+                    includeGameState: true
+                }).then(result => {
+                    console.log('✅ Solver result:', result);
+
+                    // Extract suggestions
+                    const allSuggestions = result.rankedGuesses ?
+                        result.rankedGuesses.map(item => item.word.toUpperCase()) :
+                        [];
+
+                    const gameState = result.gameState || {};
+                    const remainingCount = gameState.remainingPossibilities || allSuggestions.length;
+                    const gameComplete = remainingCount === 1;
+
+                    const response = {
+                        suggestions: allSuggestions,
+                        nextBest: result.nextBestGuess ? result.nextBestGuess.toUpperCase() : (allSuggestions[0] || 'SLATE'),
+                        remainingCount: remainingCount,
+                        gameComplete: gameComplete,
+                        totalSuggestions: allSuggestions.length
+                    };
+
+                    if (gameComplete) {
+                        response.message = '🎉 Puzzle solved!';
                     }
-                    return response.json();
-                })
-                .then(data => {
-                    // Store API results
-                    sessionStorage.setItem('wordleResults', JSON.stringify(data));
+
+                    // Store results
+                    sessionStorage.setItem('wordleResults', JSON.stringify(response));
+
                     // Redirect to results page
                     window.location.href = 'results.html';
-                })
-                .catch(error => {
-                    console.error('Error during solving:', error);
-                    showError('Failed to get solving results. Please try again.');
-
-                    // Reset button state
+                }).catch(error => {
+                    console.error('Solver error:', error);
+                    showError('Failed to solve. Please try again.');
                     solveButton.textContent = 'Solve';
                     solveButton.disabled = false;
                 });
+            } catch (error) {
+                console.error('Solver not loaded:', error);
+                showError('Solver not ready. Please refresh the page.');
+                solveButton.textContent = 'Solve';
+                solveButton.disabled = false;
+            }
         } else {
             // No valid guesses, redirect directly
             window.location.href = 'results.html';

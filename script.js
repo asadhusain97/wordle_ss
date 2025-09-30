@@ -721,7 +721,17 @@ document.addEventListener('DOMContentLoaded', function () {
                     window.location.href = 'results.html';
                 }).catch(error => {
                     console.error('Solver error:', error);
-                    showError('Failed to solve. Please try again.');
+
+                    // Check if it's a "no candidates" error - check multiple error message patterns
+                    const errorMsg = error.message || '';
+                    if (errorMsg.includes('NO_CANDIDATES') ||
+                        errorMsg.includes('No candidates available') ||
+                        errorMsg.includes('No possible answers remaining')) {
+                        showError("I can't seem to find any word that fits. Can you double check your input?");
+                    } else {
+                        showError('Failed to solve. Please try again.');
+                    }
+
                     solveButton.textContent = 'Solve';
                     solveButton.disabled = false;
                 });

@@ -178,7 +178,7 @@ class WordleSolver {
             const candidates = this.getNextBestGuesses(count);
 
             if (!candidates || candidates.length === 0) {
-                throw new Error('No candidates available to sort');
+                throw new Error('NO_CANDIDATES');
             }
 
             this.logger.log(`Sorting ${candidates.length} candidates using entropy calculation...`);
@@ -187,7 +187,7 @@ class WordleSolver {
             const possibleAnswers = this.getPossibleWords();
 
             if (possibleAnswers.length === 0) {
-                throw new Error('No possible answers remaining');
+                throw new Error('NO_CANDIDATES');
             }
 
             this.logger.log(`Evaluating against ${possibleAnswers.length} possible answers`);

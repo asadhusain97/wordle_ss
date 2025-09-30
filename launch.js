@@ -92,14 +92,25 @@ app.post('/api/get-results', async (req, res) => {
         console.error('❌ Error processing request:', error);
         console.error('Error stack:', error.stack);
 
-        // Send a user-friendly error response
-        res.status(500).json({
-            error: 'Failed to process Wordle solver request',
-            details: error.message,
-            suggestions: ['SLATE', 'CRANE', 'ADIEU'], // Fallback suggestions
-            nextBest: 'SLATE',
-            remainingCount: 'unknown'
-        });
+        // Check if it's a "no candidates" error
+        if (error.message && error.message.includes('NO_CANDIDATES')) {
+            res.status(400).json({
+                error: "I can't seem to find any word that fits. Can you double check your input?",
+                userFriendly: true,
+                suggestions: [],
+                nextBest: null,
+                remainingCount: 0
+            });
+        } else {
+            // Send a user-friendly error response
+            res.status(500).json({
+                error: 'Failed to process Wordle solver request',
+                details: error.message,
+                suggestions: ['SLATE', 'CRANE', 'ADIEU'], // Fallback suggestions
+                nextBest: 'SLATE',
+                remainingCount: 'unknown'
+            });
+        }
     }
 });
 

@@ -8,7 +8,7 @@ import { ensureOpenCVReady, decodeFileToImageBitmap, matFromImageBitmapSmart, de
 import { detectWordleGrid, GridNotFoundError } from '../img/gridDetect.js';
 import { warpGridTopDown, sliceTilesAdaptive } from '../img/warpAndTiles.js';
 import { extractGridData, extractIndividualTileData, GridUnreadableError } from '../img/colorAndOCR.js';
-import { resetIndexGrid, applyGridToDOM } from '../ui/applyGrid.js';
+import { resetIndexGrid, applyGridToDOM } from '../applyGrid.js';
 
 // Debug configuration - control visual debugging features
 const DEBUG = false; // Set to false to disable visual debug images and delays

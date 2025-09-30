@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { solveWordle } = require('./backend/services/wordleSolver');
+const { solveWordle } = require('./process/wordleSolver');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -9,49 +9,14 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static('.'));
+app.use(express.static(__dirname));
 
-// Serve frontend files from the frontend directory
-const frontendPath = path.join(__dirname, 'frontend');
-
-// Serve CSS with correct content type
-app.use('/css', express.static(path.join(__dirname, 'frontend/css'), {
-    setHeaders: (res, filePath) => {
-        if (filePath.endsWith('.css')) {
-            res.setHeader('Content-Type', 'text/css');
-        }
-    }
-}));
-
-// Serve JS files with correct content type
-app.use('/js', express.static(path.join(__dirname, 'frontend/js'), {
-    setHeaders: (res, filePath) => {
-        if (filePath.endsWith('.js')) {
-            res.setHeader('Content-Type', 'application/javascript');
-        }
-    }
-}));
+// Serve frontend files from the root directory (where they actually are)
+const frontendPath = __dirname;
 
 app.get('/', (req, res) => {
     console.log('📄 Serving main page');
     res.sendFile(path.join(frontendPath, 'index.html'));
-});
-
-app.get('/results.html', (req, res) => {
-    console.log('📄 Serving results page');
-    res.sendFile(path.join(frontendPath, 'results.html'));
-});
-
-app.get('/styles.css', (req, res) => {
-    res.sendFile(path.join(frontendPath, 'css', 'styles.css'));
-});
-
-app.get('/script.js', (req, res) => {
-    res.sendFile(path.join(frontendPath, 'js', 'script.js'));
-});
-
-app.get('/results-script.js', (req, res) => {
-    res.sendFile(path.join(frontendPath, 'js', 'results-script.js'));
 });
 
 // Enhanced results endpoint for frontend with comprehensive logging

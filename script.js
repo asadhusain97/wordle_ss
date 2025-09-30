@@ -178,7 +178,7 @@ document.addEventListener('DOMContentLoaded', function () {
             console.log(`🔍 [CLIENT] Current location: ${window.location.origin}${window.location.pathname}`);
             console.log(`🔍 [CLIENT] Relative import path: frontend/process/processWordleFromImage.js`);
 
-            const { processAndPopulateGrid } = await import('/frontend/process/processWordleFromImage.js');
+            const { processAndPopulateGrid } = await import('./process/processWordleFromImage.js');
 
             logUploadEvent('MODULE_IMPORT_SUCCESS', 'Successfully imported processWordleFromImage.js module');
 

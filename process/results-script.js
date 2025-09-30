@@ -60,19 +60,28 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // Display header information
+        // Display entropy explanation first, then header
+        displayEntropyExplanation();
         displayHeader(results);
 
         // Display suggestions starting from the second one (first is already in the green box)
         const remainingSuggestions = suggestions.slice(1, 5);
         console.log(`🏆 Displaying ${remainingSuggestions.length} remaining suggestions:`, remainingSuggestions);
 
-        remainingSuggestions.forEach((word, index) => {
+        remainingSuggestions.forEach((suggestion, index) => {
             const listItem = document.createElement('li');
             listItem.className = 'result-item';
 
-            // Add number and word with consistent styling
-            listItem.innerHTML = `<span class="result-number">${index + 2}.</span> ${word}`;
+            // Extract word and entropy
+            const word = typeof suggestion === 'string' ? suggestion : suggestion.word;
+            const entropy = typeof suggestion === 'object' ? suggestion.entropy : null;
+
+            console.log(`Word ${index + 2}: ${word}, Entropy: ${entropy}, Type: ${typeof suggestion}`);
+
+            // Add number, word, and entropy in brackets with styling
+            const entropyDisplay = entropy !== null ? ` <span class="entropy-value">(${entropy.toFixed(2)})</span>` : '';
+
+            listItem.innerHTML = `<span class="result-number">${index + 2}.</span> ${word}${entropyDisplay}`;
 
             resultsList.appendChild(listItem);
         });
@@ -103,7 +112,13 @@ document.addEventListener('DOMContentLoaded', function () {
         if (results.nextBest && !results.gameComplete) {
             const bestGuessDiv = document.createElement('div');
             bestGuessDiv.className = 'best-guess';
-            bestGuessDiv.innerHTML = `<strong>🎯 Best Next Guess: ${results.nextBest}</strong>`;
+
+            // Get entropy for the best guess (first suggestion)
+            const firstSuggestion = results.suggestions && results.suggestions[0];
+            const entropyValue = firstSuggestion && typeof firstSuggestion === 'object' ? firstSuggestion.entropy : null;
+            const entropyDisplay = entropyValue !== null ? ` <span class="entropy-value">(${entropyValue.toFixed(2)})</span>` : '';
+
+            bestGuessDiv.innerHTML = `<strong>🎯 Best Next Guess: ${results.nextBest}${entropyDisplay}</strong>`;
             resultsHeader.appendChild(bestGuessDiv);
         }
 
@@ -111,9 +126,20 @@ document.addEventListener('DOMContentLoaded', function () {
         if (results.message) {
             const messageDiv = document.createElement('div');
             messageDiv.className = 'result-message';
-            messageDiv.innerHTML = `💡 ${results.message}`;
+            messageDiv.innerHTML = `${results.message}`;
             resultsHeader.appendChild(messageDiv);
         }
+    }
+
+    function displayEntropyExplanation() {
+        const explanationDiv = document.createElement('div');
+        explanationDiv.className = 'entropy-explanation';
+        explanationDiv.innerHTML = `
+            <p class="entropy-info">
+                These words are ranked using information theory. The numbers shown are entropy values (in bits) — higher values mean the word will give you more information to narrow down the answer efficiently.
+            </p>
+        `;
+        resultsHeader.appendChild(explanationDiv);
     }
 
     function toggleAdditionalResults(additionalSuggestions) {
@@ -124,12 +150,18 @@ document.addEventListener('DOMContentLoaded', function () {
             console.log(`📝 Showing ${additionalSuggestions.length} additional suggestions`);
 
             additionalResults.innerHTML = '';
-            additionalSuggestions.forEach((word, index) => {
+            additionalSuggestions.forEach((suggestion, index) => {
                 const listItem = document.createElement('li');
                 listItem.className = 'result-item';
 
-                // Add number and word with consistent styling (continuing from where the main list left off)
-                listItem.innerHTML = `<span class="result-number">${index + 6}.</span> ${word}`;
+                // Extract word and entropy
+                const word = typeof suggestion === 'string' ? suggestion : suggestion.word;
+                const entropy = typeof suggestion === 'object' ? suggestion.entropy : null;
+
+                // Add number, word, and entropy in brackets (continuing from where the main list left off)
+                const entropyDisplay = entropy !== null ? ` <span class="entropy-value">(${entropy.toFixed(2)})</span>` : '';
+
+                listItem.innerHTML = `<span class="result-number">${index + 6}.</span> ${word}${entropyDisplay}`;
 
                 additionalResults.appendChild(listItem);
             });

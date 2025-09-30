@@ -380,12 +380,36 @@ footer {
     border-radius: 6px;
     display: flex;
     align-items: center;
+    text-align: left;
 }
 
 .result-item .result-number {
     opacity: 0.7;
     margin-right: 12px;
     font-size: 0.9em;
+}
+
+/* Entropy Value Display */
+.entropy-value {
+    font-size: 0.75em;
+    color: #888;
+    opacity: 0.8;
+    font-weight: 400;
+    font-style: italic;
+    margin-left: 4px;
+}
+
+/* Entropy Explanation */
+.entropy-explanation {
+    margin: 15px 0;
+}
+
+.entropy-info {
+    font-size: 0.9em;
+    line-height: 1.5;
+    color: #d0d0d0;
+    text-align: center;
+    margin: 0;
 }
 
 /* View More Button */

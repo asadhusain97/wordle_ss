@@ -59,9 +59,12 @@ app.post('/api/get-results', async (req, res) => {
 
         console.log('✅ Solver result:', JSON.stringify(result, null, 2));
 
-        // Extract ranked guesses (convert to simple array of words)
+        // Extract ranked guesses with entropy values
         const allSuggestions = result.rankedGuesses ?
-            result.rankedGuesses.map(item => item.word.toUpperCase()) :
+            result.rankedGuesses.map(item => ({
+                word: item.word.toUpperCase(),
+                entropy: item.entropy
+            })) :
             [];
 
         // Get game state info
@@ -72,7 +75,7 @@ app.post('/api/get-results', async (req, res) => {
         // Prepare response
         const response = {
             suggestions: allSuggestions,
-            nextBest: result.nextBestGuess ? result.nextBestGuess.toUpperCase() : (allSuggestions[0] || 'SLATE'),
+            nextBest: result.nextBestGuess ? result.nextBestGuess.toUpperCase() : (allSuggestions[0]?.word || 'SLATE'),
             remainingCount: remainingCount,
             gameComplete: gameComplete,
             totalSuggestions: allSuggestions.length

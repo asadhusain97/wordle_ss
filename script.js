@@ -690,9 +690,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 }).then(result => {
                     console.log('✅ Solver result:', result);
 
-                    // Extract suggestions
+                    // Extract suggestions with entropy values
                     const allSuggestions = result.rankedGuesses ?
-                        result.rankedGuesses.map(item => item.word.toUpperCase()) :
+                        result.rankedGuesses.map(item => ({
+                            word: item.word.toUpperCase(),
+                            entropy: item.entropy
+                        })) :
                         [];
 
                     const gameState = result.gameState || {};
@@ -701,14 +704,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     const response = {
                         suggestions: allSuggestions,
-                        nextBest: result.nextBestGuess ? result.nextBestGuess.toUpperCase() : (allSuggestions[0] || 'SLATE'),
+                        nextBest: result.nextBestGuess ? result.nextBestGuess.toUpperCase() : (allSuggestions[0]?.word || 'SLATE'),
                         remainingCount: remainingCount,
                         gameComplete: gameComplete,
                         totalSuggestions: allSuggestions.length
                     };
 
                     if (gameComplete) {
-                        response.message = '🎉 Puzzle solved!';
+                        response.message = '🎉 Puzzle solved! Are you testing me?';
                     }
 
                     // Store results

@@ -12,6 +12,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const fileInput = document.getElementById('screenshot-upload');
     const uploadStatus = document.getElementById('upload-status');
 
+    // Input divider element
+    const inputDivider = document.getElementById('input-divider');
+
     let currentActiveIndex = 0;
     let isProcessingInput = false;
 
@@ -387,6 +390,25 @@ document.addEventListener('DOMContentLoaded', function () {
         return true;
     }
 
+    // Function to check if grid has any content
+    function hasGridContent() {
+        for (let i = 0; i < gridCells.length; i++) {
+            if (gridCells[i].textContent.trim() !== '') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Function to update input divider visibility
+    function updateDividerVisibility() {
+        if (hasGridContent()) {
+            inputDivider.style.display = 'none';
+        } else {
+            inputDivider.style.display = 'flex';
+        }
+    }
+
     // Function to update solve button state
     function updateSolveButtonState() {
         if (isFirstRowComplete()) {
@@ -394,6 +416,8 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             solveButton.disabled = true;
         }
+        // Also update divider visibility whenever we update button state
+        updateDividerVisibility();
     }
 
     // Initialize solve button as disabled

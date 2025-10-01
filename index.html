@@ -21,9 +21,19 @@
         </header>
 
         <section class="description-section">
-            <p>This tool helps you find the next best possible word(s) for your Wordle puzzle with intuitive and easy
-                input methods. Simply upload a screenshot of your game or enter the words you have guessed into the grid
-                below and click on any letter to cycle its color.</p>
+            <div class="description-content">
+                <p class="description-intro">Get the <strong>best next word</strong> for your Wordle puzzle with
+                    intuitive UI and sophisticated algorithms, i.e. information theory.</p>
+
+                <div class="instruction-box">
+                    <p class="instruction-header"><strong>Two Easy Ways to Input Your Game:</strong></p>
+                    <ul class="instruction-list">
+                        <li><strong>📷 Upload a Screenshot</strong> — automatically imports your board.</li>
+                        <li><strong>✍️ Manual Entry</strong> — Type your guesses in the grid and click the tiles to
+                            match the colors in your game (grey → yellow → green).</li>
+                    </ul>
+                </div>
+            </div>
         </section>
 
         <section class="upload-section">
@@ -35,6 +45,10 @@
                 <div id="upload-status" class="upload-status hidden"></div>
             </div>
         </section>
+
+        <div id="input-divider" class="input-divider">
+            <span class="divider-text">or</span>
+        </div>
 
         <section class="grid-section">
             <div class="grid-container">

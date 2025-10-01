@@ -60,8 +60,10 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // Display entropy explanation first, then header
-        displayEntropyExplanation();
+        // Display entropy explanation first (only if game is not complete), then header
+        if (!results.gameComplete) {
+            displayEntropyExplanation();
+        }
         displayHeader(results);
 
         // Display suggestions starting from the second one (first is already in the green box)

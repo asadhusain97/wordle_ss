@@ -168,29 +168,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 additionalResults.appendChild(listItem);
             });
 
-            // Create a "Show Less" button and add it to the end of the additional results
-            const showLessItem = document.createElement('li');
-            showLessItem.className = 'show-less-container';
-
-            const showLessBtn = document.createElement('button');
-            showLessBtn.className = 'view-more-btn';
-            showLessBtn.textContent = 'Show Less';
-            showLessBtn.addEventListener('click', function () {
-                toggleAdditionalResults(additionalSuggestions);
-            });
-
-            showLessItem.appendChild(showLessBtn);
-            additionalResults.appendChild(showLessItem);
-
             additionalResults.classList.remove('hidden');
-            // Hide the original "View More" button when showing additional results
-            viewMoreBtn.style.display = 'none';
+            // Change the View More button to Show Less
+            viewMoreBtn.textContent = 'Show Less';
         } else {
             // Hide additional results
             console.log('🙈 Hiding additional results');
             additionalResults.classList.add('hidden');
-            // Show the original "View More" button again
-            viewMoreBtn.style.display = 'block';
+
+            // Change button text back to View More
             const remainingCount = additionalSuggestions.length;
             viewMoreBtn.textContent = `View ${remainingCount} More`;
         }

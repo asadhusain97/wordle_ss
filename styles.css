@@ -452,7 +452,15 @@ footer {
 #results-list,
 #additional-results {
     padding: 0;
-    margin: 15px 0;
+    margin: 0;
+}
+
+#results-list {
+    margin-bottom: 0;
+}
+
+#additional-results {
+    margin-top: 0;
 }
 
 #results-list li,

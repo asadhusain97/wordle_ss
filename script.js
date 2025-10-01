@@ -639,14 +639,19 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
-        // Handle Enter key (prevent default)
+        // Handle Enter key
         else if (e.key === 'Enter') {
             e.preventDefault();
-            // Move to next row, first column (only if not locked)
-            const currentRow = Math.floor(currentActiveIndex / 5);
-            const nextRowStart = (currentRow + 1) * 5;
-            if (nextRowStart < gridCells.length && !isCellInLockedRow(nextRowStart)) {
-                setActiveCell(nextRowStart);
+            // If solve button is enabled, click it
+            if (!solveButton.disabled) {
+                solveButton.click();
+            } else {
+                // Otherwise, move to next row, first column (only if not locked)
+                const currentRow = Math.floor(currentActiveIndex / 5);
+                const nextRowStart = (currentRow + 1) * 5;
+                if (nextRowStart < gridCells.length && !isCellInLockedRow(nextRowStart)) {
+                    setActiveCell(nextRowStart);
+                }
             }
         }
 

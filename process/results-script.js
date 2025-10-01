@@ -234,19 +234,52 @@ document.addEventListener('DOMContentLoaded', function () {
         resultsHeader.appendChild(errorDiv);
     }
 
-    // Add back button
-    const backButton = document.createElement('button');
-    backButton.className = 'back-button';
-    backButton.textContent = 'Do it again';
+    // Create button container
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'button-container';
 
-    backButton.addEventListener('click', function () {
-        // Clear stored data
+    // Add "Add Next Word" button
+    const addNextWordButton = document.createElement('button');
+    addNextWordButton.className = 'add-next-word-button';
+    addNextWordButton.textContent = 'Add Next Word';
+
+    addNextWordButton.addEventListener('click', function () {
+        // Get the submitted words from sessionStorage
+        const submittedWordsData = sessionStorage.getItem('submittedWords');
+
+        if (submittedWordsData) {
+            // Store it with a different key for restoration
+            sessionStorage.setItem('restoreWords', submittedWordsData);
+        }
+
+        // Clear results but keep the restore flag
         sessionStorage.removeItem('wordleResults');
         sessionStorage.removeItem('wordleGridData');
+        sessionStorage.removeItem('submittedWords');
+
         // Go back to main page
         window.location.href = '/';
     });
 
-    // Add button to the page
-    document.querySelector('.main-container').appendChild(backButton);
+    // Add "Start Over" button (renamed from "Do it again")
+    const startOverButton = document.createElement('button');
+    startOverButton.className = 'start-over-button';
+    startOverButton.textContent = 'Start Over';
+
+    startOverButton.addEventListener('click', function () {
+        // Clear all stored data
+        sessionStorage.removeItem('wordleResults');
+        sessionStorage.removeItem('wordleGridData');
+        sessionStorage.removeItem('submittedWords');
+        sessionStorage.removeItem('restoreWords');
+        // Go back to main page
+        window.location.href = '/';
+    });
+
+    // Add buttons to container
+    buttonContainer.appendChild(addNextWordButton);
+    buttonContainer.appendChild(startOverButton);
+
+    // Add button container to the page
+    document.querySelector('.main-container').appendChild(buttonContainer);
 });

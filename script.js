@@ -325,9 +325,57 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Restore submitted words if returning from results page with "Add Next Word"
+    function restoreSubmittedWords() {
+        const submittedWordsData = sessionStorage.getItem('restoreWords');
+        if (submittedWordsData) {
+            try {
+                const submittedWords = JSON.parse(submittedWordsData);
+                console.log('🔄 Restoring submitted words:', submittedWords);
+
+                submittedWords.forEach((rowData) => {
+                    const rowIndex = rowData.row - 1;
+                    rowData.cells.forEach((cellData) => {
+                        const cellIndex = rowIndex * 5 + (cellData.position - 1);
+                        const cell = gridCells[cellIndex];
+
+                        cell.textContent = cellData.letter;
+
+                        // Set color
+                        const colorIndex = cellData.color === 'grey' ? 0 :
+                                         cellData.color === 'yellow' ? 1 : 2;
+                        cell.classList.remove(...colorClasses);
+                        cell.classList.add(colorClasses[colorIndex]);
+                        cell.setAttribute('data-color-index', colorIndex.toString());
+                    });
+                });
+
+                // Update UI state
+                updateSolveButtonState();
+                updateRowStates();
+
+                // Set focus to first empty cell or first cell of next row
+                const nextEmptyCell = findNextEmptyCell(0);
+                if (nextEmptyCell !== -1) {
+                    setActiveCell(nextEmptyCell);
+                    gridCells[nextEmptyCell].focus();
+                }
+
+                // Clear the restore flag
+                sessionStorage.removeItem('restoreWords');
+
+            } catch (error) {
+                console.error('❌ Error restoring submitted words:', error);
+            }
+        }
+    }
+
     // Initialize with first cell active and focused
     setActiveCell(0);
     gridCells[0].focus();
+
+    // Restore words if coming back from results
+    restoreSubmittedWords();
 
     // Function to check if first row is complete (5 letters)
     function isFirstRowComplete() {
@@ -706,6 +754,9 @@ document.addEventListener('DOMContentLoaded', function () {
             compactFormat: compactFormat
         }));
 
+        // Store submitted words for "Add Next Word" functionality
+        sessionStorage.setItem('submittedWords', JSON.stringify(gridState));
+
         // If we have valid guesses, solve directly in browser
         if (compactFormat.length > 0) {
             // Show loading state
@@ -747,7 +798,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     const gameState = result.gameState || {};
                     const remainingCount = gameState.remainingPossibilities || allSuggestions.length;
-                    const gameComplete = remainingCount === 1;
+
+                    // Check if game is actually complete (has a row with all green cells)
+                    const hasAllGreenRow = gridState.some(row =>
+                        row.colors === 'ggggg'
+                    );
+                    const gameComplete = hasAllGreenRow;
 
                     const response = {
                         suggestions: allSuggestions,

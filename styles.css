@@ -495,8 +495,10 @@ footer {
     margin: 15px 0;
     border-radius: 6px;
     font-size: 0.95rem;
-    text-align: center;
+    text-align: left;
     animation: fadeIn 0.3s ease;
+    max-width: 480px;
+    line-height: 1.6;
 }
 
 .error-display {

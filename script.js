@@ -272,7 +272,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Keep contenteditable for mobile keyboard support
         // Add input event listener for mobile keyboard input
-        cell.addEventListener('input', function(e) {
+        cell.addEventListener('input', function (e) {
             const text = this.textContent;
             if (text.length > 0) {
                 // Take only the last character and make it uppercase
@@ -306,7 +306,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         // Handle focus event to set active cell
-        cell.addEventListener('focus', function() {
+        cell.addEventListener('focus', function () {
             const cellIndex = Array.from(gridCells).indexOf(this);
             if (!isCellInLockedRow(cellIndex)) {
                 setActiveCell(cellIndex);
@@ -343,7 +343,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                         // Set color
                         const colorIndex = cellData.color === 'grey' ? 0 :
-                                         cellData.color === 'yellow' ? 1 : 2;
+                            cellData.color === 'yellow' ? 1 : 2;
                         cell.classList.remove(...colorClasses);
                         cell.classList.add(colorClasses[colorIndex]);
                         cell.setAttribute('data-color-index', colorIndex.toString());
@@ -652,12 +652,12 @@ document.addEventListener('DOMContentLoaded', function () {
         // Insert error message before the solve button
         solveButton.parentNode.insertBefore(errorDiv, solveButton);
 
-        // Auto-remove error after 5 seconds
+        // Auto-remove error after 10 seconds
         setTimeout(() => {
             if (errorDiv.parentNode) {
                 errorDiv.remove();
             }
-        }, 5000);
+        }, 10000);
     }
 
     // Function to clear any existing error messages
@@ -666,6 +666,180 @@ document.addEventListener('DOMContentLoaded', function () {
         if (existingError) {
             existingError.remove();
         }
+    }
+
+    /**
+     * Validates grid state for Wordle rule consistency
+     *
+     * WORDLE CONSISTENCY RULES:
+     *
+     * 1. GREEN POSITION LOCK: If a letter is green at position X, it MUST remain green
+     *    at position X in all subsequent words
+     *
+     * 2. GREY LETTER EXCLUSION: If a letter is grey (black), it means the letter does NOT
+     *    exist in the solution. It CANNOT appear as yellow or green in ANY word
+     *
+     * 3. YELLOW PERSISTENCE (with multiple instance exception): If a letter is yellow
+     *    (exists but wrong position), it CANNOT have ALL instances become grey in subsequent
+     *    words. At least ONE instance must remain yellow or green. However, if a word has
+     *    multiple instances of the same letter, some can be grey as long as at least one
+     *    is yellow or green.
+     *    Example: If 'L' was yellow before, "HELLO" with L at positions 3,4 can have one
+     *    grey and one yellow/green.
+     *
+     * 4. GREEN TO NON-GREEN VIOLATION: Once green at a position, cannot revert to yellow/grey
+     *
+     * 5. MULTIPLE INSTANCE HANDLING: Same letter can appear multiple times with different
+     *    colors, indicating count constraints
+     *
+     * @param {Array} gridState - Array of row objects with word and color data
+     * @returns {Object} - { valid: boolean, errors: Array of error messages }
+     */
+    function validateGridConsistency(gridState) {
+        const errors = [];
+
+        // Track letter states across all words
+        // greenPositions[letter] = Set of positions where letter must be green
+        // greyLetters = Set of letters that don't exist in solution
+        // yellowLetters = Set of letters that exist in solution
+        const greenPositions = {}; // { 'A': Set([0, 2]), 'B': Set([1]) }
+        const greyLetters = new Set();
+        const yellowLetters = new Set();
+
+        console.log('🔍 Starting grid consistency validation...');
+
+        // Process each word sequentially
+        for (let i = 0; i < gridState.length; i++) {
+            const row = gridState[i];
+            const word = row.word.toUpperCase();
+            const colors = row.colors; // Format: 'byygg' (b=grey/black, y=yellow, g=green)
+            const rowNumber = row.row;
+
+            console.log(`\n📋 Validating Word ${rowNumber}: ${word} [${colors}]`);
+
+            // Track letters in current word for duplicate handling
+            const lettersInWord = {};
+
+            for (let pos = 0; pos < 5; pos++) {
+                const letter = word[pos];
+                const color = colors[pos]; // 'b', 'y', or 'g'
+
+                // Initialize tracking for this letter if not exists
+                if (!lettersInWord[letter]) {
+                    lettersInWord[letter] = [];
+                }
+                lettersInWord[letter].push({ position: pos, color: color });
+
+                console.log(`  Position ${pos}: ${letter} is ${color === 'g' ? 'GREEN' : color === 'y' ? 'YELLOW' : 'GREY'}`);
+
+                // RULE 1 & 4: GREEN POSITION CONSISTENCY
+                // If this position was previously green for a different letter, that's an error
+                // If this letter was previously green at this position, it must still be green
+                if (greenPositions[letter] && greenPositions[letter].has(pos)) {
+                    if (color !== 'g') {
+                        errors.push(`\n Word ${rowNumber}, Position ${pos + 1}: Letter '${letter}' was GREEN at this position in an earlier word. It must remain GREEN.`);
+                        console.log(`  ❌ ERROR: ${letter} should be GREEN at position ${pos}`);
+                    }
+                }
+
+                // Check if another letter was marked green at this position
+                for (const [otherLetter, positions] of Object.entries(greenPositions)) {
+                    if (otherLetter !== letter && positions.has(pos)) {
+                        if (color === 'g') {
+                            errors.push(`\n Word ${rowNumber}, Position ${pos + 1}: Position was locked to letter '${otherLetter}' (green in earlier word), but now shows '${letter}' as green.`);
+                            console.log(`  ❌ ERROR: Position ${pos} was locked to ${otherLetter}`);
+                        }
+                    }
+                }
+
+                // RULE 2: GREY LETTER EXCLUSION
+                // If letter was previously grey, it cannot be yellow or green
+                if (greyLetters.has(letter)) {
+                    if (color === 'y' || color === 'g') {
+                        errors.push(`\n Word ${rowNumber}, Position ${pos + 1}: Letter '${letter}' was marked GREY (doesn't exist) in an earlier word. It cannot be ${color === 'y' ? 'YELLOW' : 'GREEN'}.`);
+                        console.log(`  ❌ ERROR: ${letter} was marked as non-existent (grey) earlier`);
+                    }
+                }
+
+                // RULE 3: YELLOW PERSISTENCE (with multiple instance exception)
+                // If letter was previously yellow, it cannot be grey now
+                // UNLESS there's another instance of the same letter in this word that is yellow or green
+                if (yellowLetters.has(letter)) {
+                    if (color === 'b') {
+                        // Check if there's another instance of this letter in the current word that's yellow/green
+                        // We need to check the entire word first, so we'll validate this after processing all positions
+                        // For now, mark it for later validation
+                        console.log(`  ⚠️  PENDING: ${letter} was yellow before, now grey at position ${pos} - will check for other instances`);
+                    }
+                }
+            }
+
+            // RULE 3 VALIDATION: Check yellow-to-grey transitions
+            // After seeing all positions, validate that yellow letters turning grey have another instance
+            for (const [letter, instances] of Object.entries(lettersInWord)) {
+                // Check if this letter was previously yellow
+                if (yellowLetters.has(letter)) {
+                    // Count how many instances are yellow or green in current word
+                    const yellowOrGreenCount = instances.filter(inst => inst.color === 'y' || inst.color === 'g').length;
+                    const greyCount = instances.filter(inst => inst.color === 'b').length;
+
+                    // If ALL instances are grey, that's an error (letter should exist)
+                    if (greyCount > 0 && yellowOrGreenCount === 0) {
+                        const greyPositions = instances
+                            .filter(inst => inst.color === 'b')
+                            .map(inst => inst.position + 1)
+                            .join(', ');
+                        errors.push(`\n Word ${rowNumber}: Letter '${letter}' was YELLOW (exists in solution) in an earlier word, but ALL instances are GREY in the next word(s). At least one instance must be yellow or green.`);
+                        console.log(`  ❌ ERROR: All instances of ${letter} are grey, but it should exist in solution`);
+                    } else if (greyCount > 0 && yellowOrGreenCount > 0) {
+                        console.log(`  ✅ ${letter} has grey instance(s) but also has yellow/green instance(s) - valid`);
+                    }
+                }
+            }
+
+            // After processing all positions in this word, update our tracking
+            for (let pos = 0; pos < 5; pos++) {
+                const letter = word[pos];
+                const color = colors[pos];
+
+                if (color === 'g') {
+                    // Mark this letter as green at this position
+                    if (!greenPositions[letter]) {
+                        greenPositions[letter] = new Set();
+                    }
+                    greenPositions[letter].add(pos);
+                    // Green means letter exists, so it's also yellow-eligible
+                    yellowLetters.add(letter);
+                    console.log(`  ✅ Locked: ${letter} is GREEN at position ${pos}`);
+                } else if (color === 'y') {
+                    // Letter exists in solution
+                    yellowLetters.add(letter);
+                    console.log(`  ✅ Tracked: ${letter} exists in solution (yellow)`);
+                } else if (color === 'b') {
+                    // Only mark as grey if this letter was never yellow or green
+                    // AND doesn't appear as yellow/green elsewhere in the same word
+                    const hasYellowOrGreenInWord = lettersInWord[letter].some(
+                        instance => instance.color === 'y' || instance.color === 'g'
+                    );
+
+                    if (!hasYellowOrGreenInWord && !yellowLetters.has(letter)) {
+                        greyLetters.add(letter);
+                        console.log(`  ✅ Tracked: ${letter} does not exist in solution (grey)`);
+                    }
+                }
+            }
+        }
+
+        console.log('\n📊 Validation Summary:');
+        console.log(`  Green locked positions:`, Object.entries(greenPositions).map(([l, p]) => `${l}@${Array.from(p)}`));
+        console.log(`  Letters in solution:`, Array.from(yellowLetters));
+        console.log(`  Letters not in solution:`, Array.from(greyLetters));
+        console.log(`  Errors found: ${errors.length}`);
+
+        return {
+            valid: errors.length === 0,
+            errors: errors
+        };
     }
 
     // Solve button functionality
@@ -729,6 +903,26 @@ document.addEventListener('DOMContentLoaded', function () {
             showError(`${rowText.charAt(0).toUpperCase() + rowText.slice(1)} ${rowNumbers} ${incompleteRows.length === 1 ? 'has' : 'have'} incomplete word${incompleteRows.length === 1 ? '' : 's'}.`);
             return; // Stop execution
         }
+
+        // Validation: Check for Wordle rule consistency
+        console.log('\n🔍 === CONSISTENCY VALIDATION START ===');
+        const consistencyCheck = validateGridConsistency(gridState);
+        console.log('🔍 === CONSISTENCY VALIDATION END ===\n');
+
+        if (!consistencyCheck.valid) {
+            console.error('❌ Grid validation failed:', consistencyCheck.errors);
+            // Show first error with summary
+            const errorCount = consistencyCheck.errors.length;
+            const firstError = consistencyCheck.errors[0];
+            const errorMessage = errorCount === 1
+                ? firstError
+                : `First issue of ${errorCount}: ${firstError}`;
+
+            showError(`Inconsistency detected. ${errorMessage}`);
+            return; // Stop execution
+        }
+
+        console.log('✅ Grid validation passed: All rules consistent');
 
         // Log the collected data
         console.log('Grid State:', gridState);

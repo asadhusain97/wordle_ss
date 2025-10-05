@@ -286,10 +286,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     // Trigger the same logic as keyboard input
                     const cellIndex = Array.from(gridCells).indexOf(this);
                     if (!isCellInLockedRow(cellIndex)) {
-                        // Apply real-time auto-coloring for current row
-                        const currentRow = Math.floor(cellIndex / 5);
-                        applyRealTimeAutoColor(currentRow);
-
                         updateSolveButtonState();
                         updateRowStates();
 
@@ -381,9 +377,6 @@ document.addEventListener('DOMContentLoaded', function () {
     setActiveCell(0);
     gridCells[0].focus();
 
-    // Initialize yellow tracked letters for Rule 4
-    window.yellowTrackedLetters = new Set();
-
     // Restore words if coming back from results
     restoreSubmittedWords();
 
@@ -459,20 +452,6 @@ document.addEventListener('DOMContentLoaded', function () {
         gridRows.forEach((row, index) => {
             if (index <= currentRow) {
                 row.classList.remove('locked');
-            } else if (index === 5 && window.yellowTrackedLetters && window.yellowTrackedLetters.size > 0) {
-                // RULE 4: Last row might have some unlocked cells for yellow-tracked letters
-                // Don't lock the entire row, but individual cell locking is handled by isCellInLockedRow()
-                // For visual consistency, we can keep it unlocked if any yellow letters exist
-                const rowHasYellowLetter = Array.from(gridCells.slice(25, 30)).some(cell => {
-                    const letter = cell.textContent.trim().toUpperCase();
-                    return letter !== '' && window.yellowTrackedLetters.has(letter);
-                });
-
-                if (rowHasYellowLetter) {
-                    row.classList.remove('locked');
-                } else {
-                    row.classList.add('locked');
-                }
             } else {
                 row.classList.add('locked');
             }
@@ -483,18 +462,6 @@ document.addEventListener('DOMContentLoaded', function () {
     function isCellInLockedRow(cellIndex) {
         const rowIndex = Math.floor(cellIndex / 5);
         const currentRow = getCurrentUnlockedRow();
-
-        // RULE 4: If this is the last row (row 5, index 5), check if cell contains a yellow-tracked letter
-        if (rowIndex === 5 && window.yellowTrackedLetters) {
-            const cell = gridCells[cellIndex];
-            const letter = cell.textContent.trim().toUpperCase();
-
-            // If this letter has been yellow in any previous row, keep it unlocked
-            if (letter !== '' && window.yellowTrackedLetters.has(letter)) {
-                return false; // Don't lock this cell
-            }
-        }
-
         return rowIndex > currentRow;
     }
 
@@ -502,182 +469,17 @@ document.addEventListener('DOMContentLoaded', function () {
     updateRowStates();
 
     /**
-     * Builds a map of letter constraints from previous rows
-     * Returns: { greenPositions: {letter: [positions]}, yellowLetters: Set(letters), letterPositions: {letter: [{row, col, color}]} }
-     */
-    function buildLetterConstraints() {
-        const greenPositions = {}; // { 'A': [0, 2] } - positions where letter must be green
-        const yellowLetters = new Set(); // Set of letters that were yellow anywhere
-        const letterPositions = {}; // { 'A': [{row: 0, col: 1, color: 2}] } - all letter occurrences
-
-        for (let row = 0; row < 6; row++) {
-            for (let col = 0; col < 5; col++) {
-                const cellIndex = row * 5 + col;
-                const cell = gridCells[cellIndex];
-                const letter = cell.textContent.trim().toUpperCase();
-                const colorIndex = parseInt(cell.getAttribute('data-color-index'));
-
-                if (letter === '') continue;
-
-                // Track all positions
-                if (!letterPositions[letter]) {
-                    letterPositions[letter] = [];
-                }
-                letterPositions[letter].push({ row, col, colorIndex });
-
-                // Track green positions
-                if (colorIndex === 2) {
-                    if (!greenPositions[letter]) {
-                        greenPositions[letter] = [];
-                    }
-                    if (!greenPositions[letter].includes(col)) {
-                        greenPositions[letter].push(col);
-                    }
-                }
-
-                // Track yellow letters
-                if (colorIndex === 1) {
-                    yellowLetters.add(letter);
-                }
-            }
-        }
-
-        return { greenPositions, yellowLetters, letterPositions };
-    }
-
-    /**
-     * Applies real-time auto-coloring when a letter is typed in the current row
-     * Called immediately after a letter is added to a cell
-     *
-     * Rules:
-     * 1. Letter was GREEN at position X → auto GREEN at position X
-     * 2. Letter was GREEN, added elsewhere:
-     *    2.1: Single instance → YELLOW
-     *    2.2: Multiple instances → allowed yellows based on matched greens, rest GREY
-     * 3. Letter was YELLOW at position X → auto YELLOW at position X
-     */
-    function applyRealTimeAutoColor(currentRowIndex) {
-        const constraints = buildLetterConstraints();
-        const rowStartIndex = currentRowIndex * 5;
-
-        // Get all letters in current row with their positions
-        const currentRowLetters = {};
-        for (let col = 0; col < 5; col++) {
-            const cellIndex = rowStartIndex + col;
-            const cell = gridCells[cellIndex];
-            const letter = cell.textContent.trim().toUpperCase();
-
-            if (letter === '') continue;
-
-            if (!currentRowLetters[letter]) {
-                currentRowLetters[letter] = [];
-            }
-            currentRowLetters[letter].push({ col, cellIndex, cell });
-        }
-
-        // Apply rules for each letter in current row
-        for (const letter in currentRowLetters) {
-            const instances = currentRowLetters[letter];
-            const wasGreen = constraints.greenPositions[letter];
-            const wasYellow = constraints.yellowLetters.has(letter);
-
-            instances.forEach((instance, index) => {
-                const { col, cell } = instance;
-
-                // RULE 1 & 2: Letter was GREEN (enhanced logic)
-                if (wasGreen) {
-                    const isAtGreenPosition = wasGreen.includes(col);
-
-                    if (isAtGreenPosition) {
-                        // This instance is at a green position → GREEN
-                        cell.classList.remove(...colorClasses);
-                        cell.classList.add(colorClasses[2]); // GREEN
-                        cell.setAttribute('data-color-index', '2');
-                    } else {
-                        // Not at green position - need to calculate allowed yellows
-                        // Count how many green positions are matched in current row
-                        const matchedGreens = instances.filter(inst => wasGreen.includes(inst.col)).length;
-                        const totalGreenPositions = wasGreen.length;
-                        const allowedYellows = totalGreenPositions - matchedGreens;
-
-                        if (instances.length === 1) {
-                            // Single instance not at green position → YELLOW
-                            cell.classList.remove(...colorClasses);
-                            cell.classList.add(colorClasses[1]); // YELLOW
-                            cell.setAttribute('data-color-index', '1');
-                        } else {
-                            // Multiple instances - assign yellows first, then grey
-                            // Get all non-green instances in order
-                            const nonGreenInstances = instances.filter(inst => !wasGreen.includes(inst.col));
-                            const nonGreenIndex = nonGreenInstances.findIndex(inst => inst.col === col);
-
-                            if (nonGreenIndex < allowedYellows) {
-                                // This is one of the allowed yellow instances
-                                cell.classList.remove(...colorClasses);
-                                cell.classList.add(colorClasses[1]); // YELLOW
-                                cell.setAttribute('data-color-index', '1');
-                            } else {
-                                // Beyond allowed yellows → GREY
-                                cell.classList.remove(...colorClasses);
-                                cell.classList.add(colorClasses[0]); // GREY
-                                cell.setAttribute('data-color-index', '0');
-                            }
-                        }
-                    }
-                }
-                // RULE 3: Letter was YELLOW at this position
-                else if (wasYellow && constraints.letterPositions[letter]) {
-                    const yellowAtSamePosition = constraints.letterPositions[letter].some(
-                        pos => pos.col === col && pos.colorIndex === 1
-                    );
-
-                    if (yellowAtSamePosition) {
-                        cell.classList.remove(...colorClasses);
-                        cell.classList.add(colorClasses[1]); // YELLOW
-                        cell.setAttribute('data-color-index', '1');
-                    }
-                }
-            });
-        }
-    }
-
-    /**
-     * Applies autocolor rules to propagate colors down the grid
-     *
-     * Rules:
-     * 1. Green letter with multiple instances in following word:
-     *    - Letter at same position → GREEN
-     *
-     * 2. Yellow letter with single instance in following word:
-     *    - If at same position → YELLOW
-     *
-     * 3. Yellow letter with multiple instances in following word:
-     *    - Letter at same position → YELLOW
+     * Applies auto-color rules to propagate colors down the grid
+     * Rule: If a letter is colored (green/yellow/grey) at a position,
+     * automatically apply that color to the same letter at the same position
+     * in all rows BELOW (not including the current row or rows above)
      */
     function applyAutoColorRules() {
-        // Track all yellow letters across all rows (for Rule 4)
-        const yellowLettersInGrid = new Set();
+        // Track letter colors by position across all rows
+        // colorMap[position][letter] = Set of color indices seen at this position for this letter
+        const colorMap = Array.from({ length: 5 }, () => ({}));
 
-        // First pass: identify all letters that have been yellow anywhere
-        for (let row = 0; row < 6; row++) {
-            for (let col = 0; col < 5; col++) {
-                const cellIndex = row * 5 + col;
-                const cell = gridCells[cellIndex];
-                const letter = cell.textContent.trim().toUpperCase();
-                const colorIndex = parseInt(cell.getAttribute('data-color-index'));
-
-                if (letter !== '' && colorIndex === 1) { // 1 = yellow
-                    yellowLettersInGrid.add(letter);
-                }
-            }
-        }
-
-        // Store for Rule 4
-        window.yellowTrackedLetters = yellowLettersInGrid;
-
-        // Build a map of all letter occurrences by row and position
-        const lettersByRow = Array.from({ length: 6 }, () => ({}));
-
+        // First pass: collect all letter-position-color combinations from top to bottom
         for (let row = 0; row < 6; row++) {
             for (let col = 0; col < 5; col++) {
                 const cellIndex = row * 5 + col;
@@ -687,83 +489,35 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 if (letter === '') continue;
 
-                if (!lettersByRow[row][letter]) {
-                    lettersByRow[row][letter] = [];
+                // Initialize tracking for this letter at this position
+                if (!colorMap[col][letter]) {
+                    colorMap[col][letter] = [];
                 }
-                lettersByRow[row][letter].push({ col, colorIndex, cellIndex });
+                colorMap[col][letter].push({ row, colorIndex });
             }
         }
 
-        // Process each row and apply rules to rows below
-        for (let sourceRow = 0; sourceRow < 6; sourceRow++) {
-            // Get all letters in this source row
-            for (let sourceCol = 0; sourceCol < 5; sourceCol++) {
-                const sourceCellIndex = sourceRow * 5 + sourceCol;
-                const sourceCell = gridCells[sourceCellIndex];
-                const sourceLetter = sourceCell.textContent.trim().toUpperCase();
-                const sourceColor = parseInt(sourceCell.getAttribute('data-color-index'));
+        // Second pass: apply auto-color rule - propagate colors downward
+        for (let col = 0; col < 5; col++) {
+            for (const letter in colorMap[col]) {
+                const occurrences = colorMap[col][letter];
 
-                if (sourceLetter === '') continue;
+                // For each occurrence, check if we should propagate to rows below
+                for (let i = 0; i < occurrences.length; i++) {
+                    const { row: sourceRow, colorIndex: sourceColor } = occurrences[i];
 
-                // Apply rules to all rows below this one
-                for (let targetRow = sourceRow + 1; targetRow < 6; targetRow++) {
-                    const targetWord = lettersByRow[targetRow][sourceLetter];
+                    // Propagate this color to all matching letters in rows below
+                    for (let targetRow = sourceRow + 1; targetRow < 6; targetRow++) {
+                        const targetCellIndex = targetRow * 5 + col;
+                        const targetCell = gridCells[targetCellIndex];
+                        const targetLetter = targetCell.textContent.trim().toUpperCase();
 
-                    if (!targetWord || targetWord.length === 0) continue;
-
-                    const instanceCount = targetWord.length;
-                    const samePositionInstance = targetWord.find(inst => inst.col === sourceCol);
-
-                    // RULE 1: Source is GREEN (colorIndex = 2)
-                    if (sourceColor === 2) {
-                        if (instanceCount > 1) {
-                            // Multiple instances: green at same position
-                            targetWord.forEach(inst => {
-                                const targetCell = gridCells[inst.cellIndex];
-
-                                if (inst.col === sourceCol) {
-                                    // Same position → GREEN
-                                    targetCell.classList.remove(...colorClasses);
-                                    targetCell.classList.add(colorClasses[2]);
-                                    targetCell.setAttribute('data-color-index', '2');
-                                }
-                            });
-                        } else {
-                            // Single instance at same position → GREEN
-                            if (samePositionInstance) {
-                                const targetCell = gridCells[samePositionInstance.cellIndex];
-                                targetCell.classList.remove(...colorClasses);
-                                targetCell.classList.add(colorClasses[2]);
-                                targetCell.setAttribute('data-color-index', '2');
-                            }
-                        }
-                    }
-
-                    // RULE 2 & 3: Source is YELLOW (colorIndex = 1)
-                    else if (sourceColor === 1) {
-                        if (instanceCount === 1) {
-                            // RULE 2: Single instance
-                            const singleInstance = targetWord[0];
-                            const targetCell = gridCells[singleInstance.cellIndex];
-
-                            if (singleInstance.col === sourceCol) {
-                                // Same position → YELLOW
-                                targetCell.classList.remove(...colorClasses);
-                                targetCell.classList.add(colorClasses[1]);
-                                targetCell.setAttribute('data-color-index', '1');
-                            }
-                        } else {
-                            // RULE 3: Multiple instances
-                            targetWord.forEach(inst => {
-                                const targetCell = gridCells[inst.cellIndex];
-
-                                if (inst.col === sourceCol) {
-                                    // Same position → YELLOW
-                                    targetCell.classList.remove(...colorClasses);
-                                    targetCell.classList.add(colorClasses[1]);
-                                    targetCell.setAttribute('data-color-index', '1');
-                                }
-                            });
+                        // If the target cell has the same letter at this position
+                        if (targetLetter === letter) {
+                            // Apply the source color
+                            targetCell.classList.remove(...colorClasses);
+                            targetCell.classList.add(colorClasses[sourceColor]);
+                            targetCell.setAttribute('data-color-index', sourceColor.toString());
                         }
                     }
                 }
@@ -771,6 +525,71 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    /**
+     * Shows or updates a multi-color indicator on a cell
+     * @param {HTMLElement} cell - The grid cell element
+     * @param {Array<number>} colorIndices - Array of color indices (0=grey, 1=yellow, 2=green)
+     *
+     * Usage example:
+     *   showMultiColorIndicator(cell, [0, 1]);      // Half grey, half yellow
+     *   showMultiColorIndicator(cell, [0, 1, 2]);   // Third each of grey, yellow, green
+     *   showMultiColorIndicator(cell, [1, 1, 2]);   // Two thirds yellow, one third green
+     */
+    function showMultiColorIndicator(cell, colorIndices) {
+        // Remove existing indicator if present
+        removeMultiColorIndicator(cell);
+
+        if (!colorIndices || colorIndices.length === 0) return;
+
+        // Map color indices to actual colors
+        const colorMap = ['#3a3a3c', '#b59f3b', '#538d4e']; // grey, yellow, green
+        const colors = colorIndices.map(idx => colorMap[idx]);
+
+        // Create indicator element
+        const indicator = document.createElement('div');
+        indicator.className = 'multi-color-indicator';
+
+        // Calculate percentages for each color segment
+        const total = colorIndices.length;
+        const segments = [];
+        let currentPercent = 0;
+
+        colors.forEach((color, index) => {
+            const percent = (1 / total) * 100;
+            const nextPercent = currentPercent + percent;
+            segments.push(`${color} ${currentPercent}% ${nextPercent}%`);
+            currentPercent = nextPercent;
+        });
+
+        // Create conic gradient for pie chart effect
+        const gradient = `conic-gradient(${segments.join(', ')})`;
+        indicator.style.background = gradient;
+
+        // Append to cell
+        cell.style.position = 'relative';
+        cell.appendChild(indicator);
+    }
+
+    /**
+     * Removes multi-color indicator from a cell
+     * @param {HTMLElement} cell - The grid cell element
+     */
+    function removeMultiColorIndicator(cell) {
+        const existingIndicator = cell.querySelector('.multi-color-indicator');
+        if (existingIndicator) {
+            existingIndicator.remove();
+        }
+    }
+
+    /**
+     * Removes all multi-color indicators from the grid
+     * Call this when the solve button is clicked
+     */
+    function removeAllMultiColorIndicators() {
+        gridCells.forEach(cell => {
+            removeMultiColorIndicator(cell);
+        });
+    }
 
     // Color cycling functionality
     function cycleColor(cell) {
@@ -786,7 +605,7 @@ document.addEventListener('DOMContentLoaded', function () {
         cell.classList.add(colorClasses[nextIndex]);
         cell.setAttribute('data-color-index', nextIndex.toString());
 
-        // Apply autocolor rules after color change
+        // Apply auto-color rules after color change
         applyAutoColorRules();
     }
 
@@ -872,10 +691,6 @@ document.addEventListener('DOMContentLoaded', function () {
             if (currentActiveIndex >= 0 && currentActiveIndex < gridCells.length) {
                 gridCells[currentActiveIndex].textContent = e.key.toUpperCase();
 
-                // Apply real-time auto-coloring for current row
-                const currentRow = Math.floor(currentActiveIndex / 5);
-                applyRealTimeAutoColor(currentRow);
-
                 // Update solve button state after adding letter
                 updateSolveButtonState();
 
@@ -903,7 +718,6 @@ document.addEventListener('DOMContentLoaded', function () {
             // If current cell has content, clear it
             if (currentActiveIndex >= 0 && currentActiveIndex < gridCells.length) {
                 const currentCell = gridCells[currentActiveIndex];
-                let deletedFromRow = Math.floor(currentActiveIndex / 5);
 
                 if (currentCell.textContent.trim() !== '') {
                     currentCell.textContent = '';
@@ -911,14 +725,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     // Current cell is empty, find last filled cell and clear it
                     const lastFilled = findLastFilledCell();
                     if (lastFilled !== -1) {
-                        deletedFromRow = Math.floor(lastFilled / 5);
                         gridCells[lastFilled].textContent = '';
                         setActiveCell(lastFilled);
                     }
                 }
-
-                // Reapply real-time auto-coloring for the affected row
-                applyRealTimeAutoColor(deletedFromRow);
 
                 // Update solve button state after removing letter
                 updateSolveButtonState();
@@ -1193,6 +1003,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (solveButton.disabled) {
             return;
         }
+
+        // Remove all multi-color indicators when solve is clicked
+        removeAllMultiColorIndicators();
 
         // Clear any existing errors
         clearError();

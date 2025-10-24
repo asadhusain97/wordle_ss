@@ -1,7 +1,7 @@
 const Solver = require('wordle-solver');
 
 // Configuration: Number of candidates to generate and sort
-const CANDIDATE_COUNT = 20;
+const CANDIDATE_COUNT = 100;
 
 // Inline entropy calculation for browser compatibility
 function calculateWordleFeedback(guess, target) {

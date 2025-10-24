@@ -1135,7 +1135,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 // Call solver asynchronously
                 solveWordle(compactFormat, {
-                    count: 20,
+                    count: 100,
                     includeGameState: true
                 }).then(result => {
                     console.log('✅ Solver result:', result);

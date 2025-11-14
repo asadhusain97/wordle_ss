@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Information Theory - Wordle Helper SS</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <header>
+        <h1><a href="/">Wordle Helper SS</a></h1>
+    </header>
+    <main class="content-page">
+            <h2>The Math Behind Wordle: An Introduction to Information Theory</h2>
+            <p>The game of Wordle, at its core, is a game of information. With each guess, you're not just trying to find the right letters, you're trying to get the most information possible to narrow down the potential answers. This is where information theory, a field of mathematics, comes into play.</p>
+    
+            <h3>What is Information Theory?</h3>
+            <p>Information theory is a branch of mathematics that deals with quantifying information. A key concept in information theory is <strong>entropy</strong>. In simple terms, entropy is a measure of uncertainty. The more uncertainty there is, the higher the entropy. A coin flip has low entropy (only two outcomes), while a lottery has very high entropy (millions of outcomes).</p>
+            <p>In Wordle, the initial entropy is high because the secret word could be any of the thousands of possible five-letter words. The goal of each guess is to reduce this entropy as much as possible.</p>
+    
+            <h3>How This Tool Uses Information Theory</h3>
+            <p>This Wordle Helper uses the principles of information theory to suggest the best possible words to guess. Here's how it works:</p>
+            <ul>
+                <li><strong>Calculating Entropy:</strong> For each possible guess, the tool calculates the expected amount of information (in bits) you would gain from that guess. A "bit" of information is the amount of information needed to reduce the uncertainty by half.</li>
+                <li><strong>Finding the Best Guess:</strong> The best guess is the one that, on average, reduces the most uncertainty. This is the word that will most effectively narrow down the list of possible secret words, regardless of the outcome of the guess.</li>
+                <li><strong>Maximizing Information Gain:</strong> The tool recommends words that are most likely to give you a pattern of green, yellow, and gray squares that significantly cuts down the number of remaining possibilities. This is why the suggested words might not be common English words, but are mathematically optimal for gaining information.</li>
+            </ul>
+    
+            <h3>An Inspired Approach</h3>
+            <p>The creation of this tool was partly inspired by the fantastic video "Solving Wordle using information theory" by Grant Sanderson on his YouTube channel, <strong>3Blue1Brown</strong>. The video provides a deep and intuitive explanation of the mathematics behind Wordle and how information theory can be used to develop an optimal solving strategy. We highly recommend watching it to gain a deeper understanding of the concepts used in this tool.</p>
+            <p>You can watch the video here: <a href="https://www.youtube.com/watch?v=v68zYyaEmEA" target="_blank" rel="noopener noreferrer">https://www.youtube.com/watch?v=v68zYyaEmEA</a></p>
+        </main>
+    <footer id="main-footer">
+        <p>Made with &#x2665;</p>
+        <ul>
+            <li><a href="privacy.html">Privacy Policy</a></li>
+            <li><a href="https://asadhusain97.github.io/">About</a></li>
+            <li><a href="contact.html">Contact</a></li>
+            <li><a href="terms.html">Terms of Service</a></li>
+        </ul>
+    </footer>
+</body>
+
+</html>

@@ -1,10 +1,10 @@
-# Wordle Solver SS 🎮🔍
+# Wordle Helper SS 🎮🔍
 
 > **Screenshot Solver** - An intelligent Wordle assistant that uses computer vision and information theory to suggest optimal next guesses.
 
 ## Overview
 
-**Wordle Solver SS** is a web application that helps solve Wordle puzzles by analyzing game screenshots or manual input. Using OpenCV for image processing, Tesseract for OCR, and information theory for word selection, it provides mathematically optimal word suggestions to help you maintain your Wordle streak.
+**Wordle Helper SS** is a web application that helps solve Wordle puzzles by analyzing game screenshots or manual input. Using OpenCV for image processing, Tesseract for OCR, and information theory for word selection, it provides mathematically optimal word suggestions to help you maintain your Wordle streak.
 
 ### Key Capabilities
 

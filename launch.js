@@ -151,7 +151,7 @@ app.get('/api/health', (req, res) => {
     res.json({
         status: 'OK',
         timestamp: new Date().toISOString(),
-        service: 'Wordle Solver SS Backend'
+        service: 'Wordle Helper SS Backend'
     });
 });
 
@@ -212,7 +212,7 @@ async function startServer() {
 
         const server = app.listen(availablePort, () => {
             console.log('🚀 =================================');
-            console.log(`🎯 Wordle Solver SS Server running on http://localhost:${availablePort}`);
+            console.log(`🎯 Wordle Helper SS Server running on http://localhost:${availablePort}`);
             if (availablePort !== PORT) {
                 console.log(`⚠️  Note: Port ${PORT} was in use, using port ${availablePort} instead`);
             }
